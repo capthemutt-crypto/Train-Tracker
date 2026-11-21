@@ -117,7 +117,7 @@ const Sim = (() => {
     const ds = 0.02;
     for (let x = ds / 2; x < seg.d; x += ds) {
       const sp = segSpeedAt(seg, x, seg.d - x, cruise);
-      t += ds / sp * 3600;
+      t += ds / (sp * 1.609344) * 3600;
     }
     return t;
   }
@@ -130,11 +130,16 @@ const Sim = (() => {
     const sched = [];
     let t = depMinutes * MS_PER_MIN;
     const stops = dirObj.stops;
+    const segTimeArr = (seg) => segTimeEstimate(seg, Math.round(Math.min(stock.maxSpeed, seg.limit) * seg.varf * seg.j1));
+    let segIdx = 0;
     for (let i = 0; i < stops.length; i++) {
       if (i > 0) {
-        const seg = dirObj.segs[i - 1];
-        const cruise = Math.round(Math.min(stock.maxSpeed, seg.limit) * seg.varf * seg.j1);
-        t += segTimeEstimate(seg, cruise) * 1000;
+        while (segIdx < dirObj.segs.length) {
+          const seg = dirObj.segs[segIdx];
+          t += segTimeArr(seg) * 1000;
+          segIdx++;
+          if (seg.stop) break;
+        }
       }
       const arr = Math.round(t);
       t += i === 0 ? 0 : dwellSeconds(stops[i].size) * 1000;
@@ -148,9 +153,14 @@ const Sim = (() => {
     const key = routeDef.id + "_" + dir;
     if (!headcodeSeq[key]) headcodeSeq[key] = { n: 0, d: 1 };
     const h = headcodeSeq[key];
+    if (typeof routeDef.nums[0] === "number") {
+      h.n += 2;
+      if (h.n > 30) h.n = 0;
+      return String(routeDef.nums[dir] + h.n);
+    }
     h.n += h.d;
     if (h.n > 98) { h.n = 1; h.d = 1; }
-    return routeDef.prefixes[dir] + String(h.n).padStart(2, "0");
+    return routeDef.nums[dir] + String(h.n).padStart(2, "0");
   }
 
   function makeTrain(routeDef, dir, depMs, unitEntry) {
@@ -208,7 +218,7 @@ const Sim = (() => {
   }
 
   function unitOpFor(routeDef) {
-    const map = { wcml: "awc", ecml: "lner", "gwr-w": "gwr", "gwr-sw": "gwr", "xc-sw": "xc", "xc-ne": "xc", "tpe-sc": "tpe", "tpe-pn": "tpe", "nr-nw": "nr", "sr-c": "sr", "gm-ang": "ga", "gm-cbg": "ga" };
+    const map = { wcml: "awc", ecml: "lner", "gwr-w": "gwr", "gwr-sw": "gwr", "xc-sw": "xc", "xc-ne": "xc", "tpe-sc": "tpe", "tpe-pn": "tpe", "nr-nw": "nr", "sr-c": "sr", "gm-ang": "ga", "gm-cbg": "ga", acela: "amtrak", "nec-reg": "amtrak", keystone: "amtrak", empire: "amtrak", "maple-leaf": "amtrak", adirondack: "amtrak", vermonter: "amtrak", downeaster: "amtrak", crescent: "amtrak", "silver-met": "amtrak", "silver-star": "amtrak", "auto-train": "amtrak", carolinian: "amtrak", "lake-shore": "amtrak", capitol: "amtrak", cardinal: "amtrak", "empire-builder": "amtrak", "cal-zephyr": "amtrak", "sw-chief": "amtrak", sunset: "amtrak", "texas-eagle": "amtrak", "city-no": "amtrak", wolverine: "amtrak", hiawatha: "amtrak", lincoln: "amtrak", starlight: "amtrak", surfliner: "amtrak", cascades: "amtrak", "san-joaquin": "amtrak", heartland: "amtrak" };
     return map[routeDef.id] || "nr";
   }
 
@@ -246,7 +256,7 @@ const Sim = (() => {
     t.pos = { lat: p.lat, lng: p.lng };
     if (t.state === "run" && t.stopIdx >= 0) {
       const seg = t.segs[p.segIdx];
-      t.bearing = bearing(seg.ax, seg.bx);
+      t.bearing = bearing({ lat: seg.ax[0], lng: seg.ax[1] }, { lat: seg.bx[0], lng: seg.bx[1] });
       t.curSpeed = Math.round(Math.min(t.stock.maxSpeed, seg.limit) * seg.varf * seg.j1);
     }
     t.history = [];

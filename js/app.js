@@ -45,7 +45,7 @@
 
   function init() {
     Sim.init();
-    map.fitBounds([[49.8, -8.2], [58.8, 1.8]]);
+    map.fitBounds([[24.5, -127], [57, 2]]);
     buildStations();
     buildOperatorList();
     buildSpeedButtons();
@@ -73,14 +73,19 @@
 
   function updateLabels() {
     const z = map.getZoom();
-    document.body.classList.toggle("z-low", z < 8);
-    document.body.classList.toggle("z-mid", z < 6);
+    document.body.classList.toggle("z-low", z < 6);
+    document.body.classList.toggle("z-mid", z < 5);
   }
 
   function buildOperatorList() {
     const box = $("oplist");
     box.innerHTML = "";
-    for (const [id, op] of Object.entries(OPERATORS)) {
+    for (const region of REGIONS) {
+      const hdr = document.createElement("div");
+      hdr.className = "opregion";
+      hdr.textContent = region.name;
+      box.appendChild(hdr);
+      for (const [id, op] of Object.entries(OPERATORS).filter(([, o]) => o.region === region.id)) {
       const row = document.createElement("div");
       row.className = "oprow";
       row.dataset.op = id;
@@ -90,6 +95,7 @@
         row.classList.toggle("off", hiddenOps.has(id));
       });
       box.appendChild(row);
+      }
     }
   }
 
@@ -225,13 +231,21 @@
 
   function formation(t) {
     const cars = t.carCount;
-    const firstN = { "390": 4, "800": 2, "801": 2, "802": 2, "221": 1, "220": 1, "43": 2, "185": 1, "397": 1, "195": 1, "331": 1, "720": 2, "385": 1 }[t.stockId] || 1;
-    const shop = ["390", "800", "801", "802", "221", "220", "43"].includes(t.stockId) && cars > 4 ? 1 : 0;
+    const usFirstN = { acela: 5, "p42sl": 3, "p42vl": 3, "genesis_amf": 2, "p42hor": 1, airo: 2, "sc44v": 1 }[t.stockId];
+    const firstN = usFirstN != null ? usFirstN
+      : { "390": 4, "800": 2, "801": 2, "802": 2, "221": 1, "220": 1, "43": 2, "185": 1, "397": 1, "195": 1, "331": 1, "720": 2, "385": 1 }[t.stockId] || 1;
+    const usShop = { acela: "Café Car", "p42sl": "Dining car", "p42vl": "Dining car", "genesis_amf": "Café car", "p42hor": "Café car", airo: "Café car", "sc44v": "Café car" }[t.stockId];
+    const shop = usShop != null && cars > 4 ? 1 : ["390", "800", "801", "802", "221", "220", "43"].includes(t.stockId) && cars > 4 ? 1 : 0;
     const out = [];
     const letters = "ABCDEFGHIJKLMNOP".split("");
     for (let i = 0; i < cars; i++) {
       let cls = "std", label = `Coach ${letters[i]} — Standard`;
-      if (shop && i === 0) { cls = "s"; label = "Coach " + letters[i] + " — Shop / buffet"; }
+      if (shop && i === 0) { cls = "s"; label = usShop != null ? usShop : "Coach " + letters[i] + " — Shop / buffet"; }
+      else if (usFirstN != null) {
+        if (i < firstN + shop) { cls = "f"; label = `Coach ${letters[i]} — ${i < Math.max(2, usFirstN - shop) ? "Business" : "Coach"} Class`;
+          if (t.stockId === "p42sl" || t.stockId === "p42vl") { if (i === firstN + shop - 1) label = `Car ${i + 1} — Sleeper`; } }
+        else if (t.stockId === "p42sl" && i === cars - 1) { label = `Car ${i + 1} — Sightseer Lounge`; }
+      }
       else if (i < firstN + shop) { cls = "f"; label = `Coach ${letters[i]} — First Class`; }
       out.push({ cls, label });
     }
@@ -302,7 +316,10 @@
     const nsIdx = nextStopIdx(t);
     const eta = etaMin(t);
     const stats = Sim.runStats(t);
-    const headcodeClass = t.headcode[0] === "1" ? "Express passenger" : t.headcode[0] === "2" ? "Stopping passenger" : "Other";
+    const headcodeClass = /^\d+$/.test(t.headcode) ? "Passenger train No. " + t.headcode
+      : t.headcode[0] === "1" ? "Express passenger (" + t.headcode[0] + "xx)"
+      : t.headcode[0] === "2" ? "Stopping passenger (" + t.headcode[0] + "xx)"
+      : "Other (" + t.headcode + ")";
     $("tab-overview").innerHTML = `
       <div class="big-speed"><span class="num">${Math.round(t.curSpeed)}</span><span class="unit">mph&nbsp;(${Math.round(t.curSpeed * 1.609344)} km/h)</span>
       <span class="unit" style="margin-left:auto">max ${t.stock.maxSpeed} mph</span></div>
@@ -314,7 +331,7 @@
         <div class="nb-v">${stops[nsIdx].name}</div>
         <div class="nb-e">sched ${fmtHm(t.sched[nsIdx].arr)} &middot; ${eta != null && t.state === "run" ? "est. arrival in ~" + Math.round(eta) + " min" : (t.state === "dwell" ? "departure " + fmtHm(t.actual[t.stopIdx].schedDepTarget || t.sched[t.stopIdx].dep) : "awaiting departure")}</div></div>` : ""}
       <div class="kv">
-        <span class="k">Service</span><span class="v">${headcodeClass} (${t.headcode[0]}xx)</span>
+        <span class="k">Service</span><span class="v">${headcodeClass}</span>
         <span class="k">Unit</span><span class="v">${t.unitNumber} · ${t.carCount} cars</span>
         <span class="k">Route</span><span class="v">${t.routeName}</span>
         <span class="k">Distance run</span><span class="v">${stats.km.toFixed(0)} km (${(stats.km * 0.621371).toFixed(0)} mi)</span>

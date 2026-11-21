@@ -1,15 +1,16 @@
 # RailRadar — live train tracking, "FlightRadar24 for trains"
 
 A zero-build, dependency-free JavaScript web app for train enthusiasts: a dark live map of a
-simulated GB rail network with train-by-train tracking, full journey detail, rolling-stock
-profiles, station departure boards, search, and a live network event feed.
+simulated rail network spanning the whole U.S. (Amtrak-style, coast to coast) plus the GB
+main lines — with train-by-train tracking, full journey detail, rolling-stock profiles,
+station departure boards, search, and a live network event feed.
 
 ## Run it
 
 No build step. Serve the folder and open it in any browser:
 
 ```bash
-cd railradar
+cd Train-Tracker
 python3 -m http.server 8000
 # open http://localhost:8000
 ```
@@ -29,7 +30,7 @@ tracked infrastructure — worth having on even on the offline/dark modes.
 |---|---|
 | `index.html` | Shell: top bar, search, filter/feed sidebar, detail panel, departure board |
 | `css/style.css` | FR24-style dark theming, responsive layout |
-| `js/network.js` | Data: 60+ stations, 8 operators, 13 vehicle classes, 12 routes with service patterns |
+| `js/network.js` | Data: ~150 stations across the US and UK, 9 operators in 2 regions, 20 vehicle classes (Acela, P42DC Genesis, SC-44 Charger, Pendolino, …), 42 routes with real service patterns and Amtrak train numbers |
 | `js/sim.js` | Simulation engine: timetabling, run profiles, delays, dwells, events |
 | `js/app.js` | Map rendering, selection/follow, panels, search, boards, sparkline telemetry |
 | `test/` | Node harnesses used to validate the engine and UI wiring headlessly |
@@ -38,12 +39,13 @@ tracked infrastructure — worth having on even on the offline/dark modes.
 
 - **Live map** — every active service shown as a heading-oriented marker, colour-coded by
   status (green cruising, amber at station, red delayed > 5 min). Labels show headcode +
-  live speed.
+  live speed. The operator filter sidebar is grouped by region (United States / United
+  Kingdom).
 - **Track one train** — click any train (or find it via search / the live feed / a departure
   board row). The right panel has four tabs:
   - **Overview** — live speed, journey progress bar, next stop + platform + estimated
     arrival, distance run, journey time, delay cause, headcode class (1xx express / 2xx
-    stopping).
+    stopping; US services show their Amtrak train number).
   - **Calling pattern** — every scheduled stop with scheduled and actual/expected times and
     punctuality tags, next stop highlighted.
   - **Rolling stock** — class, unit number, formation (coach-by-coach: First Class, shop,
@@ -56,7 +58,7 @@ tracked infrastructure — worth having on even on the offline/dark modes.
 - **Station departure boards** — click any station dot: a live board with sched/expected
   times, platform, operator and status. Click a headcode to jump to that service.
 - **Live network feed** — departures, terminus arrivals, delays; entries are clickable.
-- **Filters** — toggle operators on/off, or show delayed services only.
+- **Filters** — toggle operators on/off (grouped by region), or show delayed services only.
 - **Time controls** — pause, and 1x / 5x / 30x / 120x speed for timelapse watching.
 
 ## How the simulation works

@@ -66,7 +66,9 @@ h3 {
 }
 #filters { border-bottom: 1px solid var(--line); padding-bottom: 8px; }
 #oplist { display: flex; flex-direction: column; }
-.oprow { display: flex; align-items: center; gap: 8px; padding: 4px 12px; cursor: pointer; user-select: none; }
+.opregion { padding: 8px 12px 3px; font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--dim); border-top: 1px solid var(--panel2); margin-top: 4px; }
+.opregion:first-child { border-top: none; margin-top: 0; }
+.oprow { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 20px; cursor: pointer; user-select: none; }
 .oprow:hover { background: var(--panel2); }
 .oprow .dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 .oprow .nm { flex: 1; }
