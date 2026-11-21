@@ -40,7 +40,11 @@
   function setBasemap(key) {
     if (baseLayer) { map.removeLayer(baseLayer); baseLayer = null; }
     const cfg = BASEMAPS[key];
-    if (cfg) baseLayer = L.tileLayer(cfg.url, { attribution: cfg.attribution, subdomains: cfg.subdomains, maxZoom: cfg.maxZoom, className: cfg.className }).addTo(map);
+    if (!cfg) return;
+    const opts = { attribution: cfg.attribution, maxZoom: cfg.maxZoom };
+    if (cfg.subdomains) opts.subdomains = cfg.subdomains;
+    if (cfg.className) opts.className = cfg.className;
+    baseLayer = L.tileLayer(cfg.url, opts).addTo(map);
   }
 
   function init() {
