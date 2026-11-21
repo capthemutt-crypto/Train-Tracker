@@ -46,6 +46,7 @@ const L = {
   },
   polyline: () => ({ addTo() {}, setLatLngs() {}, remove() {}, bindTooltip() { return { addTo() {} }; }, on() { return {}; } }),
   circle: () => ({ addTo() {}, remove() {} }),
+  latLngBounds: (a) => { const ax = a || [[24.5, -127], [57, 2]]; return { getWest: () => ax[0][1], getEast: () => ax[1][1], getNorth: () => ax[1][0], getSouth: () => ax[0][0] }; },
   layerGroup: () => ({ addTo() {}, remove() {}, addLayer() {} }),
   divIcon: (o) => o
 };

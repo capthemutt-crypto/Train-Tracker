@@ -12,6 +12,7 @@
   let spotFx = null;
   let spotListDirty = true;
   let insightsOpen = false;
+  let liveBounds = null;
 
   const trainMarkers = new Map();
   const stationMarkers = new Map();
@@ -56,6 +57,13 @@
   function init() {
     Sim.init();
     map.fitBounds([[24.5, -127], [57, 2]]);
+    liveBounds = null;
+    try {
+      const b = map.getBounds();
+      if (b && [b.getWest(), b.getEast(), b.getNorth(), b.getSouth()].every(isFinite)) liveBounds = b;
+    } catch (_e) {}
+    if (!liveBounds) liveBounds = L.latLngBounds([[24.5, -127], [57, 2]]);
+    map.on("moveend", updateHomeBtn);
     buildStations();
     buildOperatorList();
     buildSpeedButtons();
@@ -86,6 +94,39 @@
         .on("click", () => openBoard(code));
       stationMarkers.set(code, m);
     }
+  }
+
+  function inLiveView() {
+    if (!liveBounds) return true;
+    try {
+      const b = map.getBounds();
+      if (!b || ![b.getWest(), b.getEast(), b.getNorth(), b.getSouth()].every(isFinite)) return true;
+      const T = 0.02;
+      return Math.abs(b.getWest() - liveBounds.getWest()) < T && Math.abs(b.getEast() - liveBounds.getEast()) < T
+        && Math.abs(b.getNorth() - liveBounds.getNorth()) < T && Math.abs(b.getSouth() - liveBounds.getSouth()) < T;
+    } catch (_e) { return true; }
+  }
+
+  function updateHomeBtn() {
+    const btn = $("homebtn");
+    if (btn) btn.classList.toggle("hidden", inLiveView());
+  }
+
+  function goLive() {
+    follow = false;
+    const cb = $("follow");
+    if (cb) cb.checked = false;
+    const ok = liveBounds && [liveBounds.getWest(), liveBounds.getEast(), liveBounds.getNorth(), liveBounds.getSouth()].every(isFinite);
+    let sized = false;
+    try { const s = map.getSize(); sized = !!(s && s.x > 0 && s.y > 0); } catch (_e) {}
+    try {
+      if (ok && sized) map.flyToBounds(liveBounds, { duration: 0.8 });
+      else if (ok) map.fitBounds(liveBounds, { animate: false });
+      else map.fitBounds([[24.5, -127], [57, 2]], { animate: false });
+    } catch (_e) {
+      try { const c = liveBounds && liveBounds.getCenter ? liveBounds.getCenter() : null; if (c && isFinite(c.lat) && isFinite(c.lng)) map.setView([c.lat, c.lng], 5, { animate: false }); } catch (_e2) {}
+    }
+    updateHomeBtn();
   }
 
   function updateLabels() {
@@ -186,6 +227,7 @@
         if (insightsOpen) closeInsights(); else openInsights();
       }
     });
+    $("homebtn").addEventListener("click", goLive);
     $("insightsbtn").addEventListener("click", () => { if (insightsOpen) closeInsights(); else openInsights(); });
     $("insightsclose").addEventListener("click", closeInsights);
     $("insights").addEventListener("click", (e) => { if (e.target.id === "insights") closeInsights(); });
@@ -824,5 +866,5 @@
 
   init();
 
-  window.__rr = { setSpot: (lat, lng) => setSpot({ lat, lng }), openInsights, closeInsights, renderSpotList, spot: () => spot, select: (id) => selectTrain(id) };
+  window.__rr = { setSpot: (lat, lng) => setSpot({ lat, lng }), openInsights, closeInsights, renderSpotList, spot: () => spot, select: (id) => selectTrain(id), goLive, pan: (lat, lng) => map.setView([lat, lng], map.getZoom() + 2) };
 })();
