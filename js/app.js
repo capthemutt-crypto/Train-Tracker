@@ -20,6 +20,17 @@
   let notifiedPasses = new Set();
   let hashApplying = false;
 
+  const EN = (() => {
+    let cfg = "";
+    try { cfg = localStorage.getItem("rr_mode") || ""; } catch (_e) {}
+    const parts = cfg.split("|");
+    if (parts[0] === "live" && typeof LiveEngine !== "undefined") {
+      if (parts[1]) LiveEngine.setSource(parts[1]);
+      return LiveEngine;
+    }
+    return Sim;
+  })();
+
   function lsLoad(key, def) {
     try { const v = JSON.parse(localStorage.getItem(key)); return v == null ? def : v; } catch (_e) { return def; }
   }
@@ -66,7 +77,7 @@
   }
 
   function init() {
-    Sim.init();
+    EN.init();
     map.fitBounds([[24.5, -127], [57, 2]]);
     liveBounds = null;
     try {
@@ -181,7 +192,7 @@
       b.className = "ctl" + (m === 1 ? " active" : "");
       b.textContent = m + "x";
       b.addEventListener("click", () => {
-        Sim.setSpeed(m);
+        EN.setSpeed(m);
         box.querySelectorAll(".ctl").forEach(x => x.classList.remove("active"));
         b.classList.add("active");
       });
@@ -189,11 +200,46 @@
     }
   }
 
+  function updateModeChip() {
+    const chip = $("modechip");
+    if (!chip) return;
+    const isLive = EN !== Sim;
+    chip.textContent = isLive ? (EN.lastError ? "LIVE \u26a0" : "LIVE") : "SIM";
+    chip.classList.toggle("on", isLive);
+    chip.classList.toggle("stale", isLive && !!EN.lastError);
+    chip.title = isLive
+      ? (EN.lastError ? "Live feed problem: " + EN.lastError : "Live Amtrak data via server.js — click for data source settings")
+      : "Simulated schedule — click to switch to live Amtrak data";
+  }
+
+  function openMode() {
+    const isLive = EN !== Sim;
+    $("modesim").checked = !isLive;
+    $("modelive").checked = isLive;
+    let src = "api/live";
+    try {
+      const parts = (localStorage.getItem("rr_mode") || "").split("|");
+      if (parts[1]) src = parts[1];
+    } catch (_e) {}
+    $("modesrc").value = isLive ? src : "";
+    $("mode").classList.remove("hidden");
+  }
+  function closeMode() { $("mode").classList.add("hidden"); }
+  function saveMode() {
+    const live = $("modelive").checked;
+    const src = ($("modesrc").value || "api/live").trim() || "api/live";
+    try { localStorage.setItem("rr_mode", live ? "live|" + src : "sim"); } catch (_e) {}
+    location.reload();
+  }
+
   function wireUI() {
     $("pausebtn").addEventListener("click", () => {
-      Sim.setPaused(!Sim.paused);
-      $("pausebtn").innerHTML = Sim.paused ? "&#9654;" : "&#10074;&#10074;";
+      EN.setPaused(!EN.paused);
+      $("pausebtn").innerHTML = EN.paused ? "&#9654;" : "&#10074;&#10074;";
     });
+    $("modechip").addEventListener("click", openMode);
+    $("modeclose").addEventListener("click", closeMode);
+    $("modesave").addEventListener("click", saveMode);
     $("closebtn").addEventListener("click", () => {
       selectedId = null;
       $("detail").classList.add("hidden");
@@ -224,7 +270,7 @@
         document.querySelectorAll(".tabpage").forEach(p => p.classList.add("hidden"));
         $("tab-" + selectedTab).classList.remove("hidden");
         if (selectedId) {
-          const t = Sim.trainById(selectedId);
+          const t = EN.trainById(selectedId);
           if (t) renderTab(t);
         }
       });
@@ -240,14 +286,14 @@
     });
     document.addEventListener("keydown", (e) => {
       if (e.key === "/" && document.activeElement !== search) { e.preventDefault(); search.focus(); }
-      if (e.key === "Escape") { closeBoard(); closeInsights(); }
+      if (e.key === "Escape") { closeBoard(); closeInsights(); closeMode(); }
       if (e.key.toLowerCase() === "i" && document.activeElement !== search && document.activeElement.tagName !== "INPUT") {
         if (insightsOpen) closeInsights(); else openInsights();
       }
       const free = document.activeElement !== search && document.activeElement.tagName !== "INPUT";
       if (free && e.key === "?") { if ($("keys").classList.contains("hidden")) openKeys(); else closeKeys(); }
       if (free && e.key.toLowerCase() === "k") { if ($("keys").classList.contains("hidden")) openKeys(); else closeKeys(); }
-      if (free && e.key.toLowerCase() === "p") { Sim.setPaused(!Sim.paused); $("pausebtn").innerHTML = Sim.paused ? "&#9654;" : "&#10074;&#10074;"; }
+      if (free && e.key.toLowerCase() === "p") { EN.setPaused(!EN.paused); $("pausebtn").innerHTML = EN.paused ? "&#9654;" : "&#10074;&#10074;"; }
       if (free && e.key.toLowerCase() === "g") goLive();
       if (free && e.key.toLowerCase() === "l") { if ($("lifelist").classList.contains("hidden")) openLife(); else closeLife(); }
       if (free && e.key.toLowerCase() === "f" && selectedId) { follow = !follow; $("follow").checked = follow; }
@@ -275,9 +321,9 @@
     $("helpbtn").addEventListener("click", openKeys);
     $("keysclose").addEventListener("click", closeKeys);
     $("keys").addEventListener("click", (e) => { if (e.target.id === "keys") closeKeys(); });
-    $("watchbtn").addEventListener("click", () => { if (selectedId) { const t = Sim.trainById(selectedId); if (t) toggleWatch(t.routeId, t); } });
-    $("seenbtn").addEventListener("click", () => { if (selectedId) { const t = Sim.trainById(selectedId); if (t) toggleLifeEntry("units", t.stockId + "::" + t.unitNumber); } });
-    $("riddenbtn").addEventListener("click", () => { if (selectedId) { const t = Sim.trainById(selectedId); if (t) toggleLifeEntry("routes", t.routeId); } });
+    $("watchbtn").addEventListener("click", () => { if (selectedId) { const t = EN.trainById(selectedId); if (t) toggleWatch(t.routeId, t); } });
+    $("seenbtn").addEventListener("click", () => { if (selectedId) { const t = EN.trainById(selectedId); if (t) toggleLifeEntry("units", t.stockId + "::" + t.unitNumber); } });
+    $("riddenbtn").addEventListener("click", () => { if (selectedId) { const t = EN.trainById(selectedId); if (t) toggleLifeEntry("routes", t.routeId); } });
     $("visitbtn").addEventListener("click", () => { if (boardCode) toggleLifeEntry("stations", boardCode); });
     $("alerttoggle").addEventListener("change", (e) => {
       alertsOn = e.target.checked;
@@ -295,12 +341,12 @@
   function trainVisible(t) {
     if (t.state !== "run" && t.state !== "dwell") return false;
     if (hiddenOps.has(t.opId)) return false;
-    if (delayedOnly && Sim.trainDelayMs(t) < MS_PER_MIN) return false;
+    if (delayedOnly && EN.trainDelayMs(t) < MS_PER_MIN) return false;
     return true;
   }
 
   function trainColor(t) {
-    const delay = Sim.trainDelayMs(t);
+    const delay = EN.trainDelayMs(t);
     if (delay > 5 * MS_PER_MIN) return "#ff5c5c";
     if (t.state === "dwell") return "#ffc53d";
     return "#39d98a";
@@ -327,7 +373,7 @@
 
   function pruneMarkers() {
     const live = new Set();
-    for (const t of Sim.trains()) if (trainVisible(t)) live.add(t.id);
+    for (const t of EN.trains()) if (trainVisible(t)) live.add(t.id);
     for (const [id, m] of trainMarkers) {
       if (!live.has(id)) { m.remove(); trainMarkers.delete(id); }
     }
@@ -353,7 +399,7 @@
     return 1 + (h % 12);
   }
 
-  function fmtHm(ms) { return Sim.fmtTime(ms); }
+  function fmtHm(ms) { return EN.fmtTime(ms); }
 
   function deltaTag(actual, sched) {
     if (actual == null) return `<span class="dim-note">—</span>`;
@@ -414,12 +460,12 @@
 
   function statusHtml(t) {
     if (t.state === "dwell") {
-      const d = Sim.trainDelayMs(t);
-      return d < MS_PER_MIN ? `<span class="tag good">At station — on time</span>` : `<span class="tag bad">At station — ${Sim.fmtDelay(d)} late${t.cause ? " (" + t.cause + ")" : ""}</span>`;
+      const d = EN.trainDelayMs(t);
+      return d < MS_PER_MIN ? `<span class="tag good">At station — on time</span>` : `<span class="tag bad">At station — ${EN.fmtDelay(d)} late${t.cause ? " (" + t.cause + ")" : ""}</span>`;
     }
-    const d = Sim.trainDelayMs(t);
+    const d = EN.trainDelayMs(t);
     if (d < MS_PER_MIN) return `<span class="tag good">On time</span>`;
-    return `<span class="tag bad">${Sim.fmtDelay(d)} late${t.cause ? " — " + t.cause : ""}</span>`;
+    return `<span class="tag bad">${EN.fmtDelay(d)} late${t.cause ? " — " + t.cause : ""}</span>`;
   }
 
   function selectTrain(id) {
@@ -432,7 +478,7 @@
     document.querySelectorAll(".tabpage").forEach(p => p.classList.add("hidden"));
     $("tab-overview").classList.remove("hidden");
     updMarkerSel();
-    const t = Sim.trainById(id);
+    const t = EN.trainById(id);
     if (trail) { trail.remove(); trail = null; }
     if (t) {
       const op = OPERATORS[t.opId];
@@ -467,7 +513,7 @@
     const pct = Math.min(100, Math.round(100 * kmDone / stops[stops.length - 1].d));
     const nsIdx = nextStopIdx(t);
     const eta = etaMin(t);
-    const stats = Sim.runStats(t);
+    const stats = EN.runStats(t);
     const headcodeClass = t.type === "freight" ? "Freight train " + t.headcode
       : t.type === "heritage" ? "Heritage steam special " + t.headcode
       : /^\d+$/.test(t.headcode) ? "Passenger train No. " + t.headcode
@@ -492,7 +538,7 @@
         <span class="k">Distance run</span><span class="v">${stats.km.toFixed(0)} km (${(stats.km * 0.621371).toFixed(0)} mi)</span>
         <span class="k">Journey time</span><span class="v">${stats.minutes >= 60 ? Math.floor(stats.minutes / 60) + "h " + Math.round(stats.minutes % 60) + "m" : Math.round(stats.minutes) + " min"}</span>
       </div>
-      ${t.cause && Sim.trainDelayMs(t) > MS_PER_MIN ? `<div class="nextbox" style="margin-top:10px"><div class="nb-t">Reported cause of delay</div><div class="nb-v" style="color:var(--bad)">${t.cause}</div></div>` : ""}
+      ${t.cause && EN.trainDelayMs(t) > MS_PER_MIN ? `<div class="nextbox" style="margin-top:10px"><div class="nb-t">Reported cause of delay</div><div class="nb-v" style="color:var(--bad)">${t.cause}</div></div>` : ""}
     `;
   }
 
@@ -507,7 +553,7 @@
         if (shown == null && t.state === "pre") shown = t.sched[0].dep;
       } else if (t.actual[i].dep != null) shown = a.dep;
       else if (t.actual[i].arr != null) { shown = a.arr; note = "arr"; }
-      else if (isNext && t.state === "run") shown = t.sched[i].arr + Sim.trainDelayMs(t) * 0.6; else shown = null;
+      else if (isNext && t.state === "run") shown = t.sched[i].arr + EN.trainDelayMs(t) * 0.6; else shown = null;
       const expTxt = shown == null ? "—" : fmtHm(shown) + (note ? " (a)" : "");
       const before = t.actual[i].dep != null || (i === 0 && t.state !== "pre");
       html += `<tr class="${isNext ? "next" : ""}">
@@ -548,9 +594,9 @@
     const ctx = cv.getContext("2d");
     ctx.clearRect(0, 0, w, h);
     const pts = t.history.map(p => [p[2], p[3]]);
-    pts.push([Sim.simTime, t.curSpeed]);
-    const windowMs = Math.max(10 * MS_PER_MIN, Sim.simTime - (pts.length ? pts[0][0] : Sim.simTime));
-    const t0 = Sim.simTime - windowMs;
+    pts.push([EN.simTime, t.curSpeed]);
+    const windowMs = Math.max(10 * MS_PER_MIN, EN.simTime - (pts.length ? pts[0][0] : EN.simTime));
+    const t0 = EN.simTime - windowMs;
     const maxSpd = Math.max(t.stock.maxSpeed, 10);
     ctx.strokeStyle = "rgba(119,131,154,.35)";
     ctx.beginPath();
@@ -577,7 +623,7 @@
   }
 
   function renderTele(t) {
-    const stats = Sim.runStats(t);
+    const stats = EN.runStats(t);
     let maxSeen = 0;
     for (const p of t.history) maxSeen = Math.max(maxSeen, p[3]);
     maxSeen = Math.max(maxSeen, t.curSpeed);
@@ -591,28 +637,28 @@
         <span class="k">Mean speed</span><span class="v">${stats.minutes > 0 ? Math.round(stats.km * 0.621371 / (stats.minutes / 60)) : 0} mph</span>
         <span class="k">Track incidents</span><span class="v">${t.cause ? "1 reported" : "none"}</span>
       </div>
-      <div class="dim-note" style="margin-top:8px">Speed trace over the last ${Math.max(10, Math.round((Sim.simTime - (t.history[0] ? t.history[0][2] : Sim.simTime)) / MS_PER_MIN))} minutes.</div>
+      <div class="dim-note" style="margin-top:8px">Speed trace over the last ${Math.max(10, Math.round((EN.simTime - (t.history[0] ? t.history[0][2] : EN.simTime)) / MS_PER_MIN))} minutes.</div>
     `;
     drawSpark(t);
   }
 
   function render() {
     pruneMarkers();
-    for (const t of Sim.trains()) {
+    for (const t of EN.trains()) {
       if (!trainVisible(t)) continue;
       const m = ensureMarker(t);
       m.setLatLng([t.pos.lat, t.pos.lng]);
       const svg = m.getElement() && m.getElement().querySelector("svg");
       if (svg) svg.style.transform = `rotate(${Math.round(t.bearing)}deg)`;
       const trnEl = m.getElement() && m.getElement().querySelector(".trn");
-      if (trnEl) trnEl.classList.toggle("late", Sim.trainDelayMs(t) > 5 * MS_PER_MIN);
+      if (trnEl) trnEl.classList.toggle("late", EN.trainDelayMs(t) > 5 * MS_PER_MIN);
       const path = t.headcode + " " + Math.round(t.curSpeed) + " mph";
       const tt = m.getTooltip();
       if (tt && tt.getContent() !== path) m.setTooltipContent(path);
     }
     updMarkerSel();
     if (selectedId) {
-      const t = Sim.trainById(selectedId);
+      const t = EN.trainById(selectedId);
       if (t) {
         renderHead(t);
         renderTab(t);
@@ -625,15 +671,15 @@
     }
     for (const row of document.querySelectorAll(".oprow")) {
       const id = row.dataset.op;
-      row.querySelector(".cnt").textContent = Sim.trains().filter(x => x.opId === id && trainVisible(x)).length;
+      row.querySelector(".cnt").textContent = EN.trains().filter(x => x.opId === id && trainVisible(x)).length;
     }
   }
 
   function renderFeed() {
-    const ev = Sim.events().slice(-55).reverse();
+    const ev = EN.events().slice(-55).reverse();
     $("feed").innerHTML = ev.map(e => `<div class="fitem ${e.type}" data-id="${e.trainId}"><span class="ftime">${fmtHm(e.time)}</span><span><b>${e.headcode}</b> ${e.message.replace(/^\d\d:\d\d /, "")}</span></div>`).join("");
     document.querySelectorAll(".fitem").forEach(el => {
-      el.onclick = () => { const t = Sim.trainById(el.dataset.id); if (t) selectTrain(t.id); };
+      el.onclick = () => { const t = EN.trainById(el.dataset.id); if (t) selectTrain(t.id); };
     });
     renderWatchbox();
   }
@@ -643,7 +689,7 @@
     q = q.trim().toLowerCase();
     if (q.length < 2) { box.classList.add("hidden"); return; }
     const res = [];
-    for (const t of Sim.trains()) {
+    for (const t of EN.trains()) {
       if (t.state === "done") continue;
       const op = OPERATORS[t.opId];
       if (t.headcode.toLowerCase().includes(q) || op.name.toLowerCase().includes(q) || t.stock.name.toLowerCase().includes(q) || t.origin.toLowerCase().includes(q) || t.destination.toLowerCase().includes(q) || t.unitNumber.toLowerCase().includes(q)) {
@@ -694,7 +740,7 @@
 
   function renderBoard() {
     if (boardCode == null) return;
-    const rows = Sim.stationBoard(boardCode);
+    const rows = EN.stationBoard(boardCode);
     $("boardrows").innerHTML = rows.map(r => {
       const op = OPERATORS[r.op];
       let status;
@@ -712,7 +758,7 @@
     }).join("") || `<tr><td colspan="6" class="dim-note" style="padding:14px 10px">No scheduled services in the next 30 minutes.</td></tr>`;
     document.querySelectorAll("#boardrows .clickable").forEach(el => {
       el.onclick = () => {
-        const t = Sim.trains().find(x => x.headcode === el.dataset.hc);
+        const t = EN.trains().find(x => x.headcode === el.dataset.hc);
         closeBoard();
         if (t) selectTrain(t.id);
       };
@@ -726,7 +772,7 @@
     spotListDirty = true;
     updateSpotStat();
     writeHash();
-    if (selectedId && selectedTab === "spot") renderSpotTab(Sim.trainById(selectedId));
+    if (selectedId && selectedTab === "spot") renderSpotTab(EN.trainById(selectedId));
   }
 
   function dropSpotMarker() {
@@ -750,36 +796,36 @@
   }
 
   function nearestApproach(t, pt) {
-    const now = Sim.simTime;
+    const now = EN.simTime;
     const start = Math.max(now, t.sched[0].dep);
     const end = Math.min(now + 12 * 3600000, t.sched[t.sched.length - 1].arr - 1);
     if (end - start < 59999) return null;
     const step = (t.sched[t.sched.length - 1].arr - start) > 12 * MS_PER_MIN ? 4 * MS_PER_MIN : MS_PER_MIN;
     let best = null;
     for (let ms = start; ms <= end; ms += step) {
-      const p = Sim.projectAt(t, ms);
+      const p = EN.projectAt(t, ms);
       if (!p) break;
-      const d = Sim.distKm(p, pt);
+      const d = EN.distKm(p, pt);
       if (!best || d < best.distKm) best = { distKm: d, at: ms };
     }
     if (!best) return null;
     for (let ms = Math.max(start, best.at - step); ms <= Math.min(end, best.at + step); ms += 20000) {
-      const p = Sim.projectAt(t, ms);
+      const p = EN.projectAt(t, ms);
       if (!p) break;
-      const d = Sim.distKm(p, pt);
+      const d = EN.distKm(p, pt);
       if (d < best.distKm) best = { distKm: d, at: ms };
     }
-    const p = Sim.projectAt(t, best.at);
+    const p = EN.projectAt(t, best.at);
     return { distKm: best.distKm, at: best.at, lat: p.lat, lng: p.lng };
   }
 
   function nearestStop(t, pt) {
     let best = null;
     t.sched.forEach((s, i) => {
-      if (s.arr < Sim.simTime) return;
+      if (s.arr < EN.simTime) return;
       const st = STATIONS[s.code];
       if (!st) return;
-      const d = Sim.distKm(st, pt);
+      const d = EN.distKm(st, pt);
       if (!best || d < best.distKm) best = { distKm: d, code: s.code, name: s.name, arr: s.arr, dep: s.dep, idx: i };
     });
     return best;
@@ -795,7 +841,7 @@
     L.polyline([[spot.lat, spot.lng], [next.na.lat, next.na.lng]], { color: "#33c1ff", weight: 1.5, opacity: 0.7, dashArray: "2 6" })
       .bindTooltip(`${next.t.headcode} · next pass ${fmtHm(next.na.at)}`, { direction: "center", className: "stn-label" }).addTo(spotFx);
     for (const r of shown) {
-      const mins = Math.max(0, Math.round((r.na.at - Sim.simTime) / MS_PER_MIN));
+      const mins = Math.max(0, Math.round((r.na.at - EN.simTime) / MS_PER_MIN));
       const inside = r.na.distKm <= radius + 1;
       L.marker([r.na.lat, r.na.lng], {
         icon: L.divIcon({
@@ -817,7 +863,7 @@
     if (!spot) { box.innerHTML = ""; renderSpotFx([]); return; }
     const radius = parseInt($("spotradius").value, 10);
     const results = [];
-    for (const t of Sim.trains()) {
+    for (const t of EN.trains()) {
       if (t.state === "done") continue;
       const na = nearestApproach(t, spot);
       if (!na) continue;
@@ -830,7 +876,7 @@
       head = shown.length ? `Nothing within ${radius} km yet — the closest upcoming passes:` : "No scheduled passes within 12 h";
     }
     box.innerHTML = `<div class="shead">${head}</div>` + shown.map(r => {
-      const mins = Math.max(0, Math.round((r.na.at - Sim.simTime) / MS_PER_MIN));
+      const mins = Math.max(0, Math.round((r.na.at - EN.simTime) / MS_PER_MIN));
       const watch = nearestStop(r.t, spot);
       return `<div class="sitem" data-id="${r.t.id}">
         <div class="s1"><b>${r.t.headcode}</b> <span class="sdst">→ ${r.t.destination}</span><span class="swhen">${mins <= 0 ? "now" : "in " + (mins >= 60 ? Math.floor(mins / 60) + "h " + (mins % 60) + "m" : mins + "m")}</span></div>
@@ -872,33 +918,33 @@
     box.innerHTML = `${na
       ? `<div class="nextbox"><div class="nb-t">Closest point on its run</div>
         <div class="nb-v">${fmtHm(na.at)} · ${na.distKm.toFixed(0)} km / ${(na.distKm * 0.621371).toFixed(0)} mi from your spot</div>
-        <div class="nb-e">${Math.max(0, Math.round((na.at - Sim.simTime) / MS_PER_MIN))} minutes from now — straight-line distance to the track</div></div>`
+        <div class="nb-e">${Math.max(0, Math.round((na.at - EN.simTime) / MS_PER_MIN))} minutes from now — straight-line distance to the track</div></div>`
       : `<div class="dim-note">This run is finished within the next 12 hours — no upcoming pass.</div>`}
       ${stationPasses}`;
   }
 
   function insightsData() {
-    const trs = Sim.trains();
+    const trs = EN.trains();
     const live = trs.filter(t => t.state === "run" || t.state === "dwell");
     const running = live.filter(t => t.state === "run");
-    const delayed = live.filter(t => Sim.trainDelayMs(t) > 5 * MS_PER_MIN);
-    const withDelay = live.filter(t => Sim.trainDelayMs(t) > 0);
+    const delayed = live.filter(t => EN.trainDelayMs(t) > 5 * MS_PER_MIN);
+    const withDelay = live.filter(t => EN.trainDelayMs(t) > 0);
     const onTimePct = live.length ? Math.round(100 * (live.length - withDelay.length) / live.length) : 100;
     const fastest = running.reduce((a, b) => (b.curSpeed > (a ? a.curSpeed : 40) ? b : a), null);
-    const worst = live.reduce((a, b) => (Sim.trainDelayMs(b) > (a ? Sim.trainDelayMs(a) : 0) ? b : a), null);
+    const worst = live.reduce((a, b) => (EN.trainDelayMs(b) > (a ? EN.trainDelayMs(a) : 0) ? b : a), null);
     const longest = live.reduce((a, b) => (b.stops[b.stops.length - 1].d > (a ? a.stops[a.stops.length - 1].d : 0) ? b : a), null);
     const perOp = {};
     for (const t of live) {
       const o = perOp[t.opId] || (perOp[t.opId] = { n: 0, dSum: 0, dMax: 0 });
       o.n++;
-      const d = Sim.trainDelayMs(t);
+      const d = EN.trainDelayMs(t);
       o.dSum += d; if (d > o.dMax) o.dMax = d;
     }
     const fleet = {};
     for (const t of live) fleet[t.stock.name] = (fleet[t.stock.name] || 0) + 1;
-    const nextHour = trs.filter(t => t.state === "pre" && t.depMs - Sim.simTime <= 3600000).length;
+    const nextHour = trs.filter(t => t.state === "pre" && t.depMs - EN.simTime <= 3600000).length;
     const hubs = Object.entries(STATIONS).filter(([, st]) => st.size === 3)
-      .map(([code, st]) => ({ code, name: st.name, n: Sim.stationBoard(code).length }))
+      .map(([code, st]) => ({ code, name: st.name, n: EN.stationBoard(code).length }))
       .sort((a, b) => b.n - a.n).slice(0, 6);
     return { live, running, delayed, onTimePct, fastest, worst, longest, perOp, fleet, nextHour, hubs };
   }
@@ -908,7 +954,7 @@
     const fastestRow = d.fastest ? `<div class="fastrow"><b>${d.fastest.headcode}</b> — ${d.fastest.routeName} ${Math.round(d.fastest.curSpeed)} mph</div>` : "";
     const opRows = Object.entries(d.perOp).sort((a, b) => b[1].n - a[1].n)
       .map(([id, o]) => { const op = OPERATORS[id] || { name: id, color: "#888" };
-        return `<tr><td><span class="dot" style="background:${op.color}"></span>${op.name}</td><td>${o.n}</td><td>${Sim.fmtDelay(Math.round(o.dSum / o.n))}</td><td>${Sim.fmtDelay(o.dMax)}</td></tr>`;
+        return `<tr><td><span class="dot" style="background:${op.color}"></span>${op.name}</td><td>${o.n}</td><td>${EN.fmtDelay(Math.round(o.dSum / o.n))}</td><td>${EN.fmtDelay(o.dMax)}</td></tr>`;
       }).join("");
     const fleetRows = Object.entries(d.fleet).sort((a, b) => b[1] - a[1]).slice(0, 8)
       .map(([name, n]) => `<div class="flrow"><span>${name}</span><b>${n} in traffic</b></div>`).join("");
@@ -917,7 +963,7 @@
         <span class="k">Services live now</span><span class="v">${d.live.length} running · ${d.nextHour} departing within the next hour</span>
         <span class="k">Punctuality</span><span class="v">${d.onTimePct}% on time · ${d.delayed.length} running &gt; 5 min late</span>
         <span class="k">Fastest right now</span><span class="v">${d.fastest ? `${d.fastest.headcode} — ${Math.round(d.fastest.curSpeed)} mph (${d.fastest.routeName})` : "—"}</span>
-        <span class="k">Most delayed</span><span class="v">${d.worst ? `${d.worst.headcode} — ${Sim.fmtDelay(Sim.trainDelayMs(d.worst))}${d.worst.cause ? " (" + d.worst.cause + ")" : ""}` : "—"}</span>
+        <span class="k">Most delayed</span><span class="v">${d.worst ? `${d.worst.headcode} — ${EN.fmtDelay(EN.trainDelayMs(d.worst))}${d.worst.cause ? " (" + d.worst.cause + ")" : ""}` : "—"}</span>
         <span class="k">Longest haul on the board</span><span class="v">${d.longest ? `${d.longest.routeName} — ${Math.round(d.longest.stops[d.longest.stops.length - 1].d).toLocaleString()} km` : "—"}</span>
       </div>
       <h3 class="ih">Busiest hubs right now</h3>
@@ -985,16 +1031,16 @@
     if (!alertsOn || !spot) return;
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     const km = parseInt($("alertkm").value, 10) || 25;
-    for (const t of Sim.trains()) {
+    for (const t of EN.trains()) {
       if (t.state === "done") continue;
       const na = nearestApproach(t, spot);
       if (!na || na.distKm > km) continue;
-      if (na.at < Sim.simTime || na.at > Sim.simTime + 30 * MS_PER_MIN) continue;
+      if (na.at < EN.simTime || na.at > EN.simTime + 30 * MS_PER_MIN) continue;
       if (notifiedPasses.has(t.headcode)) continue;
       notifiedPasses.add(t.headcode);
       try {
         new Notification(`${t.headcode} near your spot`, {
-          body: `${t.routeName} — closest pass ${Sim.fmtTime(na.at)}, ${na.distKm.toFixed(0)} km away (${Math.max(0, Math.round((na.at - Sim.simTime) / MS_PER_MIN))} min).`
+          body: `${t.routeName} — closest pass ${EN.fmtTime(na.at)}, ${na.distKm.toFixed(0)} km away (${Math.max(0, Math.round((na.at - EN.simTime) / MS_PER_MIN))} min).`
         });
       } catch (_e) {}
     }
@@ -1016,19 +1062,19 @@
     const esc = (s) => s.replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
     const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//RailRadar//Spotting//EN"];
     let n = 0;
-    for (const t of Sim.trains()) {
+    for (const t of EN.trains()) {
       if (t.state === "done") continue;
       const na = nearestApproach(t, spot);
       if (!na || na.distKm > km) continue;
-      if (na.at < Sim.simTime || na.at > Sim.simTime + 48 * 3600000) continue;
+      if (na.at < EN.simTime || na.at > EN.simTime + 48 * 3600000) continue;
       const watch = nearestStop(t, spot);
       lines.push("BEGIN:VEVENT",
         `UID:${t.id}-${Math.round(na.at)}@railradar`,
-        `DTSTAMP:${float(Sim.simTime)}`,
+        `DTSTAMP:${float(EN.simTime)}`,
         `DTSTART:${float(na.at)}`,
         "DURATION:PT10M",
         `SUMMARY:${esc(`Pass of ${t.headcode} (${t.routeName})`)}`,
-        `DESCRIPTION:${esc(`${t.stock.name} passes ${na.distKm.toFixed(0)} km / ${(na.distKm * 0.621371).toFixed(0)} mi from your spot.${watch ? " Watch from " + watch.name + " (" + Sim.fmtTime(watch.arr) + ")." : ""}${isGoldenHour(na.at, spot.lat, spot.lng) ? " Golden hour light!" : ""}`)}`,
+        `DESCRIPTION:${esc(`${t.stock.name} passes ${na.distKm.toFixed(0)} km / ${(na.distKm * 0.621371).toFixed(0)} mi from your spot.${watch ? " Watch from " + watch.name + " (" + EN.fmtTime(watch.arr) + ")." : ""}${isGoldenHour(na.at, spot.lat, spot.lng) ? " Golden hour light!" : ""}`)}`,
         "END:VEVENT");
       if (++n >= 20) break;
     }
@@ -1053,7 +1099,7 @@
     if (i >= 0) arr.splice(i, 1); else arr.push(key);
     lsSave("rr_life", lifelist);
     renderLife();
-    if (selectedId) { const t = Sim.trainById(selectedId); if (t) renderHead(t); }
+    if (selectedId) { const t = EN.trainById(selectedId); if (t) renderHead(t); }
     if (boardCode) { const vb = $("visitbtn"); if (vb) vb.classList.toggle("on", lifelist.stations.indexOf(boardCode) >= 0); }
   }
   function renderLife() {
@@ -1099,7 +1145,7 @@
         lifelist[kind] = lifelist[kind].filter(x => x !== b.dataset.key);
         lsSave("rr_life", lifelist);
         renderLife();
-        if (selectedId) { const t = Sim.trainById(selectedId); if (t) renderHead(t); }
+        if (selectedId) { const t = EN.trainById(selectedId); if (t) renderHead(t); }
       };
     });
   }
@@ -1120,7 +1166,7 @@
     box.classList.remove("hidden");
     list.innerHTML = watch.map(rid => {
       const r = ROUTES.find(x => x.id === rid);
-      const live = Sim.trains().filter(t => t.routeId === rid && (t.state === "run" || t.state === "dwell"));
+      const live = EN.trains().filter(t => t.routeId === rid && (t.state === "run" || t.state === "dwell"));
       const op = live.length ? OPERATORS[live[0].opId] : null;
       return `<div class="watchrow" data-rid="${rid}">
         <span class="dot" style="background:${op ? op.color : "#666"}"></span>
@@ -1131,13 +1177,13 @@
     }).join("");
     list.querySelectorAll(".watchrow").forEach(row => {
       row.onclick = () => {
-        const t = Sim.trains().find(x => x.routeId === row.dataset.rid && (x.state === "run" || x.state === "dwell"))
-          || Sim.trains().find(x => x.routeId === row.dataset.rid);
+        const t = EN.trains().find(x => x.routeId === row.dataset.rid && (x.state === "run" || x.state === "dwell"))
+          || EN.trains().find(x => x.routeId === row.dataset.rid);
         if (t) selectTrain(t.id);
       };
     });
     list.querySelectorAll(".unwatch").forEach(b => {
-      b.onclick = (e) => { e.stopPropagation(); watch = watch.filter(r => r !== b.dataset.rid); lsSave("rr_watch", watch); if (selectedId) { const t = Sim.trainById(selectedId); if (t) renderHead(t); } renderWatchbox(); };
+      b.onclick = (e) => { e.stopPropagation(); watch = watch.filter(r => r !== b.dataset.rid); lsSave("rr_watch", watch); if (selectedId) { const t = EN.trainById(selectedId); if (t) renderHead(t); } renderWatchbox(); };
     });
   }
 
@@ -1146,7 +1192,7 @@
     if (hashApplying) return;
     let h = "";
     if (selectedId) {
-      const t = Sim.trainById(selectedId);
+      const t = EN.trainById(selectedId);
       if (t) h = "#t=" + encodeURIComponent(t.headcode);
     } else if (boardCode) {
       h = "#stn=" + boardCode;
@@ -1164,7 +1210,7 @@
       const params = new URLSearchParams(location.hash.slice(1));
       const hc = params.get("t");
       if (hc) {
-        const t = Sim.trains().find(x => x.headcode === decodeURIComponent(hc));
+        const t = EN.trains().find(x => x.headcode === decodeURIComponent(hc));
         if (t) selectTrain(t.id);
       } else if (params.get("stn")) {
         const code = params.get("stn");
@@ -1199,11 +1245,12 @@
   function openKeys() { $("keys").classList.remove("hidden"); }
   function closeKeys() { $("keys").classList.add("hidden"); }
 
-  const realTick = () => Sim.tick(250);
+  const realTick = () => EN.tick(250);
 
   function loop() {
     realTick();
-    $("simclock").textContent = fmtClock(Sim.simTime);
+    updateModeChip();
+    $("simclock").textContent = fmtClock(EN.simTime);
     render();
     if (boardCode != null) renderBoard();
     if (insightsOpen) renderInsights();
@@ -1213,5 +1260,5 @@
 
   renderWatchbox();
 
-  window.__rr = { setSpot: (lat, lng) => setSpot({ lat, lng }), openInsights, closeInsights, renderSpotList, spot: () => spot, select: (id) => selectTrain(id), goLive, pan: (lat, lng) => map.setView([lat, lng], map.getZoom() + 2), openLife, toggleWatch, toggleSeen: (id) => { const t = Sim.trainById(id); if (t) toggleLifeEntry("units", t.stockId + "::" + t.unitNumber); }, lifelist: () => lifelist, writeHash, applyHash, buildScenic, sunTimes: (ms, lat, lng) => sunTimes(ms, lat, lng), isGolden: (ms) => isGoldenHour(ms, spot ? spot.lat : 40, spot ? spot.lng : -95), openKeys };
+  window.__rr = { setSpot: (lat, lng) => setSpot({ lat, lng }), openInsights, closeInsights, renderSpotList, spot: () => spot, select: (id) => selectTrain(id), goLive, pan: (lat, lng) => map.setView([lat, lng], map.getZoom() + 2), openLife, toggleWatch, toggleSeen: (id) => { const t = EN.trainById(id); if (t) toggleLifeEntry("units", t.stockId + "::" + t.unitNumber); }, lifelist: () => lifelist, writeHash, applyHash, buildScenic, sunTimes: (ms, lat, lng) => sunTimes(ms, lat, lng), isGolden: (ms) => isGoldenHour(ms, spot ? spot.lat : 40, spot ? spot.lng : -95), openKeys };
 })();

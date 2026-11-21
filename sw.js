@@ -1,4 +1,4 @@
-const APP_CACHE = "railradar-app-v1";
+const APP_CACHE = "railradar-app-v2";
 const TILE_CACHE = "railradar-tiles-v1";
 const APP_ASSETS = [
   "./",
@@ -6,6 +6,7 @@ const APP_ASSETS = [
   "./css/style.css",
   "./js/network.js",
   "./js/sim.js",
+  "./js/live.js",
   "./js/app.js",
   "./manifest.webmanifest",
   "./icon.svg",

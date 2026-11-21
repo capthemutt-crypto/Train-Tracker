@@ -1,10 +1,13 @@
 # RailRadar — live train tracking, "FlightRadar24 for trains"
 
-A zero-build, dependency-free JavaScript web app for train enthusiasts: a dark live map of a
-simulated rail network spanning the whole U.S. (Amtrak-style, coast to coast) plus the GB
-main lines — with train-by-train tracking, full journey detail, rolling-stock profiles,
-named-train history, freight & steam traffic, station departure boards, spotting planning,
-a life list, search, and a live network event feed.
+A zero-build, dependency-free JavaScript web app for train enthusiasts: a dark live map
+spanning the whole U.S. plus the GB main lines — with train-by-train tracking, full journey
+detail, rolling-stock profiles, named-train history, freight & steam traffic, station
+departure boards, spotting planning, a life list, search, and a live network event feed.
+
+It runs in two modes: a fully offline **simulated** network, and a **live** mode streaming
+real, real-time Amtrak train positions (the same data behind Amtrak's "Track Your Train"
+map — no API key needed; see *Live mode* below).
 
 ## Run it
 
@@ -16,8 +19,39 @@ python3 -m http.server 8000
 # open http://localhost:8000
 ```
 
-(Or just double-click `index.html` — Leaflet is vendored locally in `vendor/`, so no
-internet is needed for the app itself.)
+### Live mode (real Amtrak trains)
+
+```bash
+cd Train-Tracker
+node server.js        # needs Node 18+
+# open http://localhost:8000, then click the SIM chip in the top bar and pick "Live"
+```
+
+`server.js` serves the site **and** polls + decrypts Amtrak's own live tracking map feed
+(the same one powering <https://maps.amtrak.com> "Track Your Train"), re-exposing it as
+plain JSON at `http://localhost:8000/api/live`. The browser can't talk to Amtrak directly
+(the endpoint is encrypted and CORS-blocked), so this small local bridge is the one extra
+moving part. It's dependency-free, uses only `node:crypto` + `fetch`, and polls politely
+(every 45 s) — you can tune with `POLL_MS=60000 node server.js`.
+
+What you get in live mode: real GPS positions, real speeds, real consist statuses
+(arrived / departed / running + "N MI LATE"), real delays derived from actuals vs
+schedule, live departure boards, and live event feed — for Amtrak's whole network.
+
+Notes & limits:
+
+- **Amtrak only.** No other operator publishes a key-free real-time feed. The UK network
+  and the freight/steam services stay simulated; Network Rail's feed (UK) requires
+  registration, so it remains a documented future step.
+- Times are converted from each station's local timezone (E/C/M/P, Arizona handled)
+  — a rare service straddling a DST edge can differ by a minute.
+- The SIM / LIVE chip in the top bar shows the active source and turns amber
+  (⚠) if the feed goes stale.
+- GitHub Pages / any static host serves the app fine in simulated mode; live mode
+  requires `server.js` running on your own machine (a laptop, a Raspberry Pi, a tiny
+  VPS…). Point the app at any bridge with the Feed URL box in the data-source modal.
+- Data © Amtrak; this is a personal-use, low-volume reader of their public map feed —
+  not an official integration. Don't redistribute the raw data or hammer the endpoint.
 
 **Basemaps:** every option is key-free. The default **Dark** style is derived from standard
 OpenStreetMap tiles with a CSS darkening filter — CARTO is not used anywhere (it started
@@ -35,7 +69,9 @@ tracked infrastructure — turn it on to see that trains follow the real alignme
 | `css/style.css` | FR24-style dark theming, marker shapes, responsive drawer layout |
 | `js/network.js` | Data: ~150 stations across the US and UK, 14 operators in 2 regions, 20+ vehicle classes (Acela, P42DC Genesis, SC-44, Pendolino, EMD SD70ACe, Class 66 "Shed", GWR Castle steam, …), 48 routes with real service patterns, Amtrak train numbers, curved-track waypoints, named-train history (`ROUTE_INFO`) and `SCENIC` locations |
 | `js/sim.js` | Simulation engine: timetabling, run profiles, delays, dwells, events |
-| `js/app.js` | Map rendering, selection/follow, panels, search, boards, sparkline telemetry, spotting, life list, watchlist, shareable URLs, notifications |
+| `js/live.js` | Live engine: drop-in `Sim`-compatible adapter over `server.js`'s real-time Amtrak feed |
+| `server.js` | Zero-dependency Node bridge: static site + decrypted, normalized live Amtrak feed at `/api/live` |
+| `js/app.js` | Map rendering, selection/follow, panels, search, boards, sparkline telemetry, spotting, life list, watchlist, shareable URLs, notifications, SIM/LIVE source switch |
 | `vendor/` | Locally-bundled Leaflet 1.9.4 (offline-friendly) |
 | `manifest.webmanifest`, `icon.svg`, `sw.js` | PWA install + offline service worker |
 | `test/` | Node harnesses used to validate the engine and UI wiring headlessly |
@@ -140,19 +176,28 @@ station dwell extensions and initial delays with realistic causes. Services star
 you opened the page are deterministically reconciled against their timetables. Headcodes are
 deterministic per route/direction/departure, which is what makes the `#t=` share links work.
 
-## Plugging in real data later
+## How live mode works
 
-The UI only talks to `js/sim.js`'s public surface (`Sim.trains()`, `Sim.trainById`,
-`Sim.stationBoard`, `Sim.events`, `Sim.simTime` ...). To go live, replace `sim.js` with an
-adapter implementing the same surface from a real-time source, e.g.:
+The UI only talks to an engine's public surface (`trains()`, `trainById`,
+`stationBoard`, `events`, `simTime` ...); both the simulator and the live adapter
+implement the identical interface, so the whole UI — search, spotting projections,
+life list, shareable `#t=` links — works against either. `js/live.js` maps each feed
+train onto app-shaped objects: stops are chained by great-circle distance, progress is
+projected onto that chain, delay comes from Amtrak's estimates vs schedule, and future
+positions (`projectAt`) interpolate station times including delays.
+
+Amtrak publishes no official API; their map feed is an encrypted blob whose bootstrap
+is re-derived at each poll (`RoutesList.json` → key material → PBKDF2-SHA1 +
+AES-128-CBC, done with `node:crypto`). Corrections come out as actual arrival/departure
+times per station (`postarr`/`postdep`), estimates for stations ahead, per-train GPS
+points and velocity. The bridge normalizes all of it (single-letter timezones to epoch
+UTC, headings to degrees) before exposing `/api/live`.
+
+Still on the roadmap:
 
 - **GTFS-Realtime** `VehiclePosition` + `TripUpdate` feeds (many operators expose these;
-  fetch server-side or through a small CORS proxy) — the easiest first step for a few
-  Amtrak or UK feeds.
-- **Network Rail Open Data** (UK) via the STOMP feed — real train described movements,
-  matching the routes modelled here.
+  the same adapter pattern applies — build a second bridge, point the Feed URL at it).
+- **Network Rail Open Data** (UK) via the STOMP feed — registration required, so it's a
+  documented path rather than a promised feature.
 - **OpenRailwayMap** for infrastructure overlays; the `STOCK` table in `network.js` can be
   enriched with real fleet data unchanged.
-
-Any source that provides id, headcode, position, speed, course, operator, and a timed stop
-pattern will drive the whole UI unchanged.

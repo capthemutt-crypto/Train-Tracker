@@ -22,6 +22,7 @@
     <button id="listbtn" class="ctl" title="Life list (L)">List</button>
     <button id="helpbtn" class="ctl" title="Keyboard shortcuts (?)">?</button>
     <button id="insightsbtn" class="ctl" title="Network insights (I)">Insights</button>
+    <button id="modechip" class="ctl" title="Simulated schedule — click to switch to live Amtrak data">SIM</button>
     <span id="simclock">--:--:--</span>
     <button id="pausebtn" class="ctl" title="Pause / resume (P)">&#10074;&#10074;</button>
     <div id="speedbtns"></div>
@@ -174,9 +175,24 @@
   </div>
 </div>
 
+<div id="mode" class="hidden">
+  <div id="modecard">
+    <header>
+      <h2>Data source</h2>
+      <button id="modeclose" title="Close">&#215;</button>
+    </header>
+    <p class="dim-note">Live mode shows real-time Amtrak positions. It needs <code>server.js</code> running on a machine that can reach maps.amtrak.com (run <code>node server.js</code>, then open this app through it). UK trains stay simulated.</p>
+    <label class="mrow"><input type="radio" name="modesel" id="modesim" value="sim"> Simulated schedule (works everywhere, offline)</label>
+    <label class="mrow"><input type="radio" name="modesel" id="modelive" value="live"> Live Amtrak data</label>
+    <label class="mrow src">Feed URL <input type="text" id="modesrc" placeholder="api/live" spellcheck="false"></label>
+    <div class="mbtns"><button id="modesave" class="ctl small">Save &amp; reload</button></div>
+  </div>
+</div>
+
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="js/network.js"></script>
 <script src="js/sim.js"></script>
+<script src="js/live.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

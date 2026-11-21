@@ -304,17 +304,28 @@ body.z-mid .train-label { display: none; }
 .watchrow .unwatch:hover { color: var(--bad); }
 
 /* ---- life list ---- */
-#lifelist, #keys {
+#lifelist, #keys, #mode {
   position: fixed; inset: 0; z-index: 1600; background: rgba(4,8,14,.72);
   display: flex; align-items: center; justify-content: center;
 }
-#lifecard, #keyscard {
+#lifecard, #keyscard, #modecard {
   width: min(94vw, 560px); max-height: 82vh; overflow: auto;
   background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
   padding: 16px 18px 18px;
 }
-#lifecard header, #keyscard header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-#lifecard h2, #keyscard h2 { font-size: 16px; }
+#lifecard header, #keyscard header, #modecard header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+#lifecard h2, #keyscard h2, #modecard h2 { font-size: 16px; }
+
+/* ---- data source (mode) modal ---- */
+#modecard .mrow { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: 13px; }
+#modecard .mrow.src input[type="text"] {
+  flex: 1; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
+  color: var(--text); padding: 5px 8px; font-size: 12px; font-family: inherit;
+}
+#modecard .mbtns { display: flex; justify-content: flex-end; margin-top: 10px; }
+#modecard #modesave { padding: 6px 12px; }
+#modechip.on { color: #39d98a; border-color: #39d98a; font-weight: 700; letter-spacing: .08em; }
+#modechip.on.stale { color: #ffc53d; border-color: #ffc53d; }
 .lifestats {
   display: flex; gap: 10px; margin: 6px 0 12px;
 }
