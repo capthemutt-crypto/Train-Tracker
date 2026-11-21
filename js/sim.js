@@ -68,7 +68,7 @@ const Sim = (() => {
       if (i > 0) {
         const prev = fwdStops[i - 1];
         const next = fwdStops[i];
-        const n = Math.max(0, Math.round(distKm(prev, next) / 18));
+        const n = Math.max(0, Math.round(distKm(prev, next) / 9));
         for (let j = 1; j <= n; j++) {
           const f = j / (n + 1);
           pts.push([prev.lat + (next.lat - prev.lat) * f, prev.lng + (next.lng - prev.lng) * f]);
@@ -181,11 +181,15 @@ const Sim = (() => {
     const rand = rng(seed);
     const delayed = rand() < 0.32;
     const delayMin = delayed ? Math.round(2 + rand() * 11) : 0;
+    const isFreight = (routeDef.type || "pass") === "freight";
     const { sched } = buildTimetable({ maxSpeed: stock.maxSpeed }, dirObj, stock, depMs / MS_PER_MIN);
     sched.forEach(s => { s.dep += delayed ? delayMin * MS_PER_MIN : 0; });
-    const unitNumber = stockId === "43"
-      ? `43 ${String(100 + Math.floor(rand() * 180))}`
-      : `${stockId} ${String(1 + Math.floor(rand() * 354)).padStart(3, "0")}`;
+    let unitNumber;
+    if (stockId === "43") unitNumber = `43 ${String(100 + Math.floor(rand() * 180))}`;
+    else if (stockId === "class66") unitNumber = `66 ${String(1 + Math.floor(rand() * 599)).padStart(3, "0")}`;
+    else if (stockId === "sd70ace") unitNumber = String(8000 + Math.floor(rand() * 1900));
+    else if (stockId === "castle") { const cs = [["4073", "Caerphilly Castle"], ["5029", "Nunney Castle"], ["5043", "Earl of Mount Edgcumbe"], ["5051", "Earl Bathurst"], ["7029", "Clun Castle"], ["5080", "Defiant"]]; const c = cs[Math.floor(rand() * cs.length)]; unitNumber = `${c[0]} ${c[1]}`; }
+    else unitNumber = `${stockId} ${String(1 + Math.floor(rand() * 354)).padStart(3, "0")}`;
     const t = {
       id: "t" + (++trainSeq),
       headcode: nextHeadcode(routeDef, dir),
@@ -194,9 +198,10 @@ const Sim = (() => {
       dir,
 
       opId: unitOpFor(routeDef),
+      type: routeDef.type || "pass",
       stockId,
       stock,
-      carCount: cars,
+      carCount: isFreight ? 14 + Math.floor(rand() * 26) : cars,
       unitNumber,
       origin: dirObj.terminusNames[dir ? 1 : 0],
       destination: dirObj.terminusNames[dir ? 0 : 1],
@@ -228,7 +233,8 @@ const Sim = (() => {
 
   function unitOpFor(routeDef) {
     const map = { wcml: "awc", ecml: "lner", "gwr-w": "gwr", "gwr-sw": "gwr", "xc-sw": "xc", "xc-ne": "xc", "tpe-sc": "tpe", "tpe-pn": "tpe", "nr-nw": "nr", "sr-c": "sr", "gm-ang": "ga", "gm-cbg": "ga", acela: "amtrak", "nec-reg": "amtrak", keystone: "amtrak", empire: "amtrak", "maple-leaf": "amtrak", adirondack: "amtrak", vermonter: "amtrak", downeaster: "amtrak", crescent: "amtrak", "silver-met": "amtrak", "silver-star": "amtrak", "auto-train": "amtrak", carolinian: "amtrak", "lake-shore": "amtrak", capitol: "amtrak", cardinal: "amtrak", "empire-builder": "amtrak", "cal-zephyr": "amtrak", "sw-chief": "amtrak", sunset: "amtrak", "texas-eagle": "amtrak", "city-no": "amtrak", wolverine: "amtrak", hiawatha: "amtrak", lincoln: "amtrak", starlight: "amtrak", surfliner: "amtrak", cascades: "amtrak", "san-joaquin": "amtrak", heartland: "amtrak" };
-    return map[routeDef.id] || "nr";
+    const extra = { pennsylvanian: "amtrak", "ns-buf": "nsc", "bnsf-transcon": "bnsf", "dbc-wcml": "dbuk", "fl-ge": "freightliner", cathedrals: "svtr" };
+    return extra[routeDef.id] || map[routeDef.id] || "nr";
   }
 
   function syncToSchedule(t) {

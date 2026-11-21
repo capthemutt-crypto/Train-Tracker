@@ -13,6 +13,17 @@
   let spotListDirty = true;
   let insightsOpen = false;
   let liveBounds = null;
+  let lifelist = lsLoad("rr_life", { units: [], classes: [], routes: [], stations: [] });
+  let watch = lsLoad("rr_watch", []);
+  let alertsOn = false;
+  let scenicLayer = null;
+  let notifiedPasses = new Set();
+  let hashApplying = false;
+
+  function lsLoad(key, def) {
+    try { const v = JSON.parse(localStorage.getItem(key)); return v == null ? def : v; } catch (_e) { return def; }
+  }
+  function lsSave(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (_e) {} }
 
   const trainMarkers = new Map();
   const stationMarkers = new Map();
@@ -79,6 +90,12 @@
     setInterval(loop, 250);
     setInterval(renderFeed, 1500);
     setInterval(renderSpotList, 4000);
+    setInterval(checkAlerts, 5000);
+    applyHash();
+    window.addEventListener("hashchange", () => { if (!hashApplying) applyHash(); });
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+      try { navigator.serviceWorker.register("sw.js").catch(() => {}); } catch (_e) {}
+    }
   }
 
   function buildStations() {
@@ -182,6 +199,7 @@
       $("detail").classList.add("hidden");
       if (trail) { trail.remove(); trail = null; }
       updMarkerSel();
+      writeHash();
     });
     $("boardclose").addEventListener("click", closeBoard);
     $("board").addEventListener("click", (e) => { if (e.target === $("board")) closeBoard(); });
@@ -226,6 +244,14 @@
       if (e.key.toLowerCase() === "i" && document.activeElement !== search && document.activeElement.tagName !== "INPUT") {
         if (insightsOpen) closeInsights(); else openInsights();
       }
+      const free = document.activeElement !== search && document.activeElement.tagName !== "INPUT";
+      if (free && e.key === "?") { if ($("keys").classList.contains("hidden")) openKeys(); else closeKeys(); }
+      if (free && e.key.toLowerCase() === "k") { if ($("keys").classList.contains("hidden")) openKeys(); else closeKeys(); }
+      if (free && e.key.toLowerCase() === "p") { Sim.setPaused(!Sim.paused); $("pausebtn").innerHTML = Sim.paused ? "&#9654;" : "&#10074;&#10074;"; }
+      if (free && e.key.toLowerCase() === "g") goLive();
+      if (free && e.key.toLowerCase() === "l") { if ($("lifelist").classList.contains("hidden")) openLife(); else closeLife(); }
+      if (free && e.key.toLowerCase() === "f" && selectedId) { follow = !follow; $("follow").checked = follow; }
+      if (e.key === "Escape") closeKeys();
     });
     $("homebtn").addEventListener("click", goLive);
     $("insightsbtn").addEventListener("click", () => { if (insightsOpen) closeInsights(); else openInsights(); });
@@ -241,6 +267,29 @@
     });
     $("spotpin").addEventListener("click", () => setSpotPin(!spotPin));
     $("spotradius").addEventListener("change", () => { if (spot) renderSpotList(); });
+    $("menubtn").addEventListener("click", () => document.body.classList.toggle("panel-open"));
+    $("scenictoggle").addEventListener("change", buildScenic);
+    $("listbtn").addEventListener("click", openLife);
+    $("lifeclose").addEventListener("click", closeLife);
+    $("lifelist").addEventListener("click", (e) => { if (e.target.id === "lifelist") closeLife(); });
+    $("helpbtn").addEventListener("click", openKeys);
+    $("keysclose").addEventListener("click", closeKeys);
+    $("keys").addEventListener("click", (e) => { if (e.target.id === "keys") closeKeys(); });
+    $("watchbtn").addEventListener("click", () => { if (selectedId) { const t = Sim.trainById(selectedId); if (t) toggleWatch(t.routeId, t); } });
+    $("seenbtn").addEventListener("click", () => { if (selectedId) { const t = Sim.trainById(selectedId); if (t) toggleLifeEntry("units", t.stockId + "::" + t.unitNumber); } });
+    $("riddenbtn").addEventListener("click", () => { if (selectedId) { const t = Sim.trainById(selectedId); if (t) toggleLifeEntry("routes", t.routeId); } });
+    $("visitbtn").addEventListener("click", () => { if (boardCode) toggleLifeEntry("stations", boardCode); });
+    $("alerttoggle").addEventListener("change", (e) => {
+      alertsOn = e.target.checked;
+      if (!alertsOn) return;
+      if (typeof Notification === "undefined") { updateSpotStat("Notifications are not supported in this browser."); alertsOn = false; $("alerttoggle").checked = false; return; }
+      if (Notification.permission === "default") {
+        Notification.requestPermission().then((p) => {
+          if (p !== "granted") { alertsOn = false; $("alerttoggle").checked = false; updateSpotStat("Notification permission denied — pass alerts stay off."); }
+        });
+      }
+    });
+    $("addics").addEventListener("click", icsExport);
   }
 
   function trainVisible(t) {
@@ -260,7 +309,13 @@
   function ensureMarker(t) {
     let m = trainMarkers.get(t.id);
     if (!m) {
-      const icon = L.divIcon({ className: "", html: `<div class="trn"><svg viewBox="0 0 20 20"><path d="M10 1 L17.5 17.5 L10 13.4 L2.5 17.5 Z" fill="${trainColor(t)}" stroke="rgba(0,0,0,.55)" stroke-width="1"/></svg></div>`, iconSize: [22, 22], iconAnchor: [11, 11] });
+      const cls = t.type === "freight" ? "trn frt" : t.type === "heritage" ? "trn stm" : "trn";
+      const shape = t.type === "freight"
+        ? `<path d="M3.5 6.5 L14 6.5 L16.5 10 L14 13.5 L3.5 13.5 L1.5 10 Z" fill="${trainColor(t)}" stroke="rgba(0,0,0,.55)" stroke-width="1"/>`
+        : t.type === "heritage"
+          ? `<circle cx="10" cy="10" r="7" fill="${trainColor(t)}" stroke="rgba(0,0,0,.55)" stroke-width="1.4"/><circle cx="10" cy="10" r="2.6" fill="rgba(0,0,0,.5)"/>`
+          : `<path d="M10 1 L17.5 17.5 L10 13.4 L2.5 17.5 Z" fill="${trainColor(t)}" stroke="rgba(0,0,0,.55)" stroke-width="1"/>`;
+      const icon = L.divIcon({ className: "", html: `<div class="${cls}" aria-label="${t.headcode}" role="img"><svg viewBox="0 0 20 20">${shape}</svg></div>`, iconSize: [22, 22], iconAnchor: [11, 11] });
       m = L.marker(map.getCenter(), { icon, zIndexOffset: 500 })
         .addTo(map)
         .bindTooltip(t.headcode, { permanent: true, direction: "right", offset: [10, 0], className: "train-label", opacity: 0.9 })
@@ -310,6 +365,13 @@
 
   function formation(t) {
     const cars = t.carCount;
+    if (t.type === "freight") {
+      const out = [{ cls: "f", label: `${t.stock.name} — ${t.unitNumber}` }];
+      const shown = Math.min(cars - 1, 12);
+      for (let i = 0; i < shown; i++) out.push({ cls: "std", label: `Freight car ${i + 1}` });
+      if (cars - 1 > shown) out.push({ cls: "std", label: `+ ${cars - 1 - shown} more` });
+      return out;
+    }
     const usFirstN = { acela: 5, "p42sl": 3, "p42vl": 3, "genesis_amf": 2, "p42hor": 1, airo: 2, "sc44v": 1 }[t.stockId];
     const firstN = usFirstN != null ? usFirstN
       : { "390": 4, "800": 2, "801": 2, "802": 2, "221": 1, "220": 1, "43": 2, "185": 1, "397": 1, "195": 1, "331": 1, "720": 2, "385": 1 }[t.stockId] || 1;
@@ -378,6 +440,7 @@
       map.panTo([t.pos.lat, t.pos.lng], { animate: true });
     }
     render();
+    writeHash();
   }
 
   function renderHead(t) {
@@ -385,6 +448,16 @@
     $("d-headcode").textContent = t.headcode;
     $("d-op").innerHTML = `${op.name} — ${t.origin} &rarr; ${t.destination}`;
     $("d-status").innerHTML = statusHtml(t);
+    const seen = $("seenbtn"), rid = $("riddenbtn"), wbtn = $("watchbtn");
+    if (seen) { const on = lifelist.units.indexOf(t.stockId + "::" + t.unitNumber) >= 0; seen.classList.toggle("on", on); seen.innerHTML = on ? "&#10003; Seen" : "&#10003; Seen"; }
+    if (rid) { const on = lifelist.routes.indexOf(t.routeId) >= 0; rid.classList.toggle("on", on); }
+    if (wbtn) { const on = watch.indexOf(t.routeId) >= 0; wbtn.classList.toggle("on", on); wbtn.innerHTML = on ? "&#9733; Watching" : "&#9734; Watch"; }
+  }
+
+  function renderRouteInfo(t) {
+    const info = typeof ROUTE_INFO !== "undefined" && ROUTE_INFO[t.routeId];
+    if (!info) return "";
+    return `<div class="nextbox" style="margin-top:10px"><div class="nb-t">About this train${info.since ? ` — running since ${info.since}` : ""}</div><div class="nb-v" style="font-weight:400;font-size:12px;color:var(--dim)">${info.blurb}</div></div>`;
   }
 
   function renderOverview(t) {
@@ -395,9 +468,12 @@
     const nsIdx = nextStopIdx(t);
     const eta = etaMin(t);
     const stats = Sim.runStats(t);
-    const headcodeClass = /^\d+$/.test(t.headcode) ? "Passenger train No. " + t.headcode
+    const headcodeClass = t.type === "freight" ? "Freight train " + t.headcode
+      : t.type === "heritage" ? "Heritage steam special " + t.headcode
+      : /^\d+$/.test(t.headcode) ? "Passenger train No. " + t.headcode
       : t.headcode[0] === "1" ? "Express passenger (" + t.headcode[0] + "xx)"
       : t.headcode[0] === "2" ? "Stopping passenger (" + t.headcode[0] + "xx)"
+      : t.headcode[0] === "4" ? "Freight (" + t.headcode[0] + "xx)"
       : "Other (" + t.headcode + ")";
     $("tab-overview").innerHTML = `
       <div class="big-speed"><span class="num">${Math.round(t.curSpeed)}</span><span class="unit">mph&nbsp;(${Math.round(t.curSpeed * 1.609344)} km/h)</span>
@@ -411,7 +487,7 @@
         <div class="nb-e">sched ${fmtHm(t.sched[nsIdx].arr)} &middot; ${eta != null && t.state === "run" ? "est. arrival in ~" + Math.round(eta) + " min" : (t.state === "dwell" ? "departure " + fmtHm(t.actual[t.stopIdx].schedDepTarget || t.sched[t.stopIdx].dep) : "awaiting departure")}</div></div>` : ""}
       <div class="kv">
         <span class="k">Service</span><span class="v">${headcodeClass}</span>
-        <span class="k">Unit</span><span class="v">${t.unitNumber} · ${t.carCount} cars</span>
+        <span class="k">Unit</span><span class="v">${t.unitNumber} · ${t.carCount} ${t.type === "freight" ? "wagons" : "cars"}</span>
         <span class="k">Route</span><span class="v">${t.routeName}</span>
         <span class="k">Distance run</span><span class="v">${stats.km.toFixed(0)} km (${(stats.km * 0.621371).toFixed(0)} mi)</span>
         <span class="k">Journey time</span><span class="v">${stats.minutes >= 60 ? Math.floor(stats.minutes / 60) + "h " + Math.round(stats.minutes % 60) + "m" : Math.round(stats.minutes) + " min"}</span>
@@ -455,12 +531,12 @@
         <span class="k">Unit number</span><span class="v">${t.unitNumber}</span>
         <span class="k">Formation</span><span class="v">${t.carCount} vehicles</span>
         <span class="k">Power</span><span class="v">${s.power}</span>
-        <span class="k">Design speed</span><span class="v">${s.maxSpeed} mph</span>
+        <span class="k">Design speed</span><span class="v">${s.maxSpeed} mph${s.typical ? ` · ${s.typical} mph typical in service` : ""}</span>
         <span class="k">Builder</span><span class="v">${s.maker}</span>
         <span class="k">Built</span><span class="v">${s.built}</span>
       </div>
       <div class="formation">${form.map(c => `<span class="coach ${c.cls}">${c.label.replace("Coach ", "")}</span>`).join("")}</div>
-      <div class="stocknote">${s.note}</div>
+      <div class="stocknote">${s.note}${s.fact ? `<div class="nextbox" style="margin-top:10px"><div class="nb-t">Fun fact</div><div class="nb-v" style="font-weight:400;font-size:12px;color:var(--dim)">${s.fact}</div></div>` : ""}</div>
     `;
   }
 
@@ -528,6 +604,8 @@
       m.setLatLng([t.pos.lat, t.pos.lng]);
       const svg = m.getElement() && m.getElement().querySelector("svg");
       if (svg) svg.style.transform = `rotate(${Math.round(t.bearing)}deg)`;
+      const trnEl = m.getElement() && m.getElement().querySelector(".trn");
+      if (trnEl) trnEl.classList.toggle("late", Sim.trainDelayMs(t) > 5 * MS_PER_MIN);
       const path = t.headcode + " " + Math.round(t.curSpeed) + " mph";
       const tt = m.getTooltip();
       if (tt && tt.getContent() !== path) m.setTooltipContent(path);
@@ -557,6 +635,7 @@
     document.querySelectorAll(".fitem").forEach(el => {
       el.onclick = () => { const t = Sim.trainById(el.dataset.id); if (t) selectTrain(t.id); };
     });
+    renderWatchbox();
   }
 
   function renderSearch(q) {
@@ -600,12 +679,17 @@
     boardCode = code;
     const st = STATIONS[code];
     $("boardtitle").textContent = st.name;
+    const vb = $("visitbtn");
+    if (vb) { const on = lifelist.stations.indexOf(code) >= 0; vb.classList.toggle("on", on); }
     $("board").classList.remove("hidden");
+    document.body.classList.remove("panel-open");
+    writeHash();
     renderBoard();
   }
   function closeBoard() {
     boardCode = null;
     $("board").classList.add("hidden");
+    writeHash();
   }
 
   function renderBoard() {
@@ -641,6 +725,7 @@
     dropSpotMarker();
     spotListDirty = true;
     updateSpotStat();
+    writeHash();
     if (selectedId && selectedTab === "spot") renderSpotTab(Sim.trainById(selectedId));
   }
 
@@ -854,6 +939,266 @@
     return name.replace(/ (Union Station|Central Station|Transportation Center)$/, "").split(" — ")[0];
   }
 
+  /* ---- sun / golden hour ---- */
+  function sunTimes(dateMs, lat, lng) {
+    const rad = Math.PI / 180;
+    const dayMs = 864e5, J1970 = 2440588, J2000 = 2451545;
+    const toJ = (d) => d.valueOf() / dayMs - 0.5 + J1970;
+    const fromJ = (j) => new Date((j + 0.5 - J1970) * dayMs);
+    const obliq = rad * 23.4397;
+    const solarMeanAnomaly = (d) => rad * (357.5291 + 0.98560028 * d);
+    const eclipticLongitude = (M) => {
+      const C = rad * (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M));
+      const P = rad * 102.9372;
+      return M + C + P + Math.PI;
+    };
+    const declination = (L) => Math.asin(Math.sin(obliq) * Math.sin(L));
+    const d = toJ(dateMs);
+    const M = solarMeanAnomaly(d);
+    const L = eclipticLongitude(M);
+    const dec = declination(L);
+    const J0 = 0.0009;
+    const lw = rad * -lng;
+    const phi = rad * lat;
+    const n = Math.round(d - J0 - lw / (2 * Math.PI));
+    const ds = (ds_) => J0 + (ds_ + lw) / (2 * Math.PI) + n;
+    const transitJ = solarTransitJ(ds(0), M, L);
+    const h0 = rad * -0.833;
+    const cosH = (Math.sin(h0) - Math.sin(phi) * Math.sin(dec)) / (Math.cos(phi) * Math.cos(dec));
+    if (cosH > 1) return { sunrise: null, sunset: null };
+    if (cosH < -1) return { sunrise: fromJ(transitJ - 6 * 3600 / 48), sunset: fromJ(transitJ + 6 * 3600 / 48) };
+    const w = hourAngle(h0, phi, dec);
+    return { sunrise: fromJ(solarTransitJ(ds(-w), M, L) ), sunset: fromJ(solarTransitJ(ds(w), M, L) ) };
+    function solarTransitJ(ds_, M_, L_) { return J2000 + ds_ + 0.0053 * Math.sin(M_) - 0.0069 * Math.sin(2 * L_); }
+    function hourAngle(h, phi_, dec_) { return Math.acos((Math.sin(h) - Math.sin(phi_) * Math.sin(dec_)) / (Math.cos(phi_) * Math.cos(dec_))); }
+  }
+
+  function isGoldenHour(ms, lat, lng) {
+    const sun = sunTimes(ms, lat, lng);
+    if (!sun.sunrise || !sun.sunset) return false;
+    const G = 75 * MS_PER_MIN;
+    return (ms >= sun.sunrise && ms <= sun.sunrise + G) || (ms >= sun.sunset - G && ms <= sun.sunset);
+  }
+
+  /* ---- proximity notifications ---- */
+  function checkAlerts() {
+    if (!alertsOn || !spot) return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    const km = parseInt($("alertkm").value, 10) || 25;
+    for (const t of Sim.trains()) {
+      if (t.state === "done") continue;
+      const na = nearestApproach(t, spot);
+      if (!na || na.distKm > km) continue;
+      if (na.at < Sim.simTime || na.at > Sim.simTime + 30 * MS_PER_MIN) continue;
+      if (notifiedPasses.has(t.headcode)) continue;
+      notifiedPasses.add(t.headcode);
+      try {
+        new Notification(`${t.headcode} near your spot`, {
+          body: `${t.routeName} — closest pass ${Sim.fmtTime(na.at)}, ${na.distKm.toFixed(0)} km away (${Math.max(0, Math.round((na.at - Sim.simTime) / MS_PER_MIN))} min).`
+        });
+      } catch (_e) {}
+    }
+  }
+
+  /* ---- calendar (.ics) export ---- */
+  function icsExport() {
+    if (!spot) { updateSpotStat("Set a spot first — then the next close passes export to your calendar."); return; }
+    if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function" || typeof Blob === "undefined") {
+      updateSpotStat("Calendar export needs a browser with Blob support.");
+      return;
+    }
+    const km = parseInt($("alertkm").value, 10) || parseInt($("spotradius").value, 10);
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const float = (ms) => {
+      const d = new Date(ms);
+      return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}T${pad2(d.getHours())}${pad2(d.getMinutes())}00`;
+    };
+    const esc = (s) => s.replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
+    const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//RailRadar//Spotting//EN"];
+    let n = 0;
+    for (const t of Sim.trains()) {
+      if (t.state === "done") continue;
+      const na = nearestApproach(t, spot);
+      if (!na || na.distKm > km) continue;
+      if (na.at < Sim.simTime || na.at > Sim.simTime + 48 * 3600000) continue;
+      const watch = nearestStop(t, spot);
+      lines.push("BEGIN:VEVENT",
+        `UID:${t.id}-${Math.round(na.at)}@railradar`,
+        `DTSTAMP:${float(Sim.simTime)}`,
+        `DTSTART:${float(na.at)}`,
+        "DURATION:PT10M",
+        `SUMMARY:${esc(`Pass of ${t.headcode} (${t.routeName})`)}`,
+        `DESCRIPTION:${esc(`${t.stock.name} passes ${na.distKm.toFixed(0)} km / ${(na.distKm * 0.621371).toFixed(0)} mi from your spot.${watch ? " Watch from " + watch.name + " (" + Sim.fmtTime(watch.arr) + ")." : ""}${isGoldenHour(na.at, spot.lat, spot.lng) ? " Golden hour light!" : ""}`)}`,
+        "END:VEVENT");
+      if (++n >= 20) break;
+    }
+    if (!n) { updateSpotStat("No close passes in the next 48 h to export."); return; }
+    lines.push("END:VCALENDAR");
+    const blob = new Blob([lines.join("\r\n")], { type: "text/calendar" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "railradar-passes.ics";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    updateSpotStat(`Exported ${n} upcoming pass${n === 1 ? "" : "es"} to railradar-passes.ics.`);
+  }
+
+  /* ---- life list ---- */
+  function openLife() { $("lifelist").classList.remove("hidden"); renderLife(); }
+  function closeLife() { $("lifelist").classList.add("hidden"); }
+  function toggleLifeEntry(kind, key, label) {
+    const arr = lifelist[kind];
+    const i = arr.indexOf(key);
+    if (i >= 0) arr.splice(i, 1); else arr.push(key);
+    lsSave("rr_life", lifelist);
+    renderLife();
+    if (selectedId) { const t = Sim.trainById(selectedId); if (t) renderHead(t); }
+    if (boardCode) { const vb = $("visitbtn"); if (vb) vb.classList.toggle("on", lifelist.stations.indexOf(boardCode) >= 0); }
+  }
+  function renderLife() {
+    const body = $("lifebody");
+    if (!body) return;
+    const classCounts = {};
+    for (const u of lifelist.units) { const cls = u.split("::")[0]; classCounts[cls] = (classCounts[cls] || 0) + 1; }
+    const chip = (text, kind, key) => `<span class="chip">${text}<button data-kind="${kind}" data-key="${key.replace(/"/g, "&quot;")}" title="Remove">&#215;</button></span>`;
+    const sec = (title, items, kind, emptyNote) => {
+      const list = items.length ? items : [`<span class="chip empty-note">${emptyNote}</span>`];
+      return `<div class="lifeh">${title}</div><div class="chipbox">${list.join("")}</div>`;
+    };
+    const unitChips = lifelist.units.map(u => {
+      const [cls, num] = u.split("::");
+      return chip(`${STOCK[cls] ? STOCK[cls].name.split(" ")[0] : cls} ${num}`, "units", u);
+    });
+    const classChips = Object.entries(classCounts).sort((a, b) => b[1] - a[1])
+      .map(([cls, n]) => chip(`${STOCK[cls] ? STOCK[cls].name : cls} (${n})`, "#", cls)).map(c => c);
+    const routeChips = lifelist.routes.map(rid => {
+      const r = ROUTES.find(x => x.id === rid);
+      return chip(r ? r.name.replace(/:.*$/, "").replace(/ \u2014.*$/, "") : rid, "routes", rid);
+    });
+    const stnChips = lifelist.stations.map(code => {
+      const st = STATIONS[code];
+      return chip(st ? st.name : code, "stations", code);
+    });
+    body.innerHTML = `
+      <div class="lifestats">
+        <div class="lstat"><b>${Object.keys(classCounts).length}</b><span>classes seen</span></div>
+        <div class="lstat"><b>${lifelist.units.length}</b><span>units logged</span></div>
+        <div class="lstat"><b>${lifelist.routes.length}</b><span>routes ridden</span></div>
+        <div class="lstat"><b>${lifelist.stations.length}</b><span>stations visited</span></div>
+      </div>
+      ${sec("Units spotted", unitChips, "units", "Use the \u2713 Seen button on a train\u2019s detail panel.")}
+      ${sec("Routes ridden", routeChips, "routes", "Use the \u2713 Ridden button on a train\u2019s detail panel.")}
+      ${sec("Stations visited", stnChips, "stations", "Use the \u2713 Visited button on a departure board.")}
+      <div class="dim-note" style="margin-top:10px">Saved in this browser. Clear an entry with the \u00d7 on its chip.</div>
+    `;
+    body.querySelectorAll(".chip button[data-kind]").forEach(b => {
+      b.onclick = () => {
+        const kind = b.dataset.kind;
+        if (!lifelist[kind]) return;
+        lifelist[kind] = lifelist[kind].filter(x => x !== b.dataset.key);
+        lsSave("rr_life", lifelist);
+        renderLife();
+        if (selectedId) { const t = Sim.trainById(selectedId); if (t) renderHead(t); }
+      };
+    });
+  }
+
+  /* ---- watchlist ---- */
+  function toggleWatch(routeId, t) {
+    if (!routeId) return;
+    const i = watch.indexOf(routeId);
+    if (i >= 0) watch.splice(i, 1); else watch.push(routeId);
+    lsSave("rr_watch", watch);
+    if (t) renderHead(t);
+    renderWatchbox();
+  }
+  function renderWatchbox() {
+    const box = $("watchbox"), list = $("watchlist");
+    if (!box || !list) return;
+    if (!watch.length) { box.classList.add("hidden"); return; }
+    box.classList.remove("hidden");
+    list.innerHTML = watch.map(rid => {
+      const r = ROUTES.find(x => x.id === rid);
+      const live = Sim.trains().filter(t => t.routeId === rid && (t.state === "run" || t.state === "dwell"));
+      const op = live.length ? OPERATORS[live[0].opId] : null;
+      return `<div class="watchrow" data-rid="${rid}">
+        <span class="dot" style="background:${op ? op.color : "#666"}"></span>
+        <span class="wn">${r ? r.name : rid}</span>
+        <span class="wc">${live.length ? live.length + " live" : "not running"}</span>
+        <button class="unwatch" data-rid="${rid}" title="Remove from watchlist">&#215;</button>
+      </div>`;
+    }).join("");
+    list.querySelectorAll(".watchrow").forEach(row => {
+      row.onclick = () => {
+        const t = Sim.trains().find(x => x.routeId === row.dataset.rid && (x.state === "run" || x.state === "dwell"))
+          || Sim.trains().find(x => x.routeId === row.dataset.rid);
+        if (t) selectTrain(t.id);
+      };
+    });
+    list.querySelectorAll(".unwatch").forEach(b => {
+      b.onclick = (e) => { e.stopPropagation(); watch = watch.filter(r => r !== b.dataset.rid); lsSave("rr_watch", watch); if (selectedId) { const t = Sim.trainById(selectedId); if (t) renderHead(t); } renderWatchbox(); };
+    });
+  }
+
+  /* ---- shareable URLs ---- */
+  function writeHash() {
+    if (hashApplying) return;
+    let h = "";
+    if (selectedId) {
+      const t = Sim.trainById(selectedId);
+      if (t) h = "#t=" + encodeURIComponent(t.headcode);
+    } else if (boardCode) {
+      h = "#stn=" + boardCode;
+    } else if (spot) {
+      h = "#spot=" + spot.lat.toFixed(4) + "," + spot.lng.toFixed(4);
+    }
+    try { history.replaceState(null, "", h || location.pathname.replace(/[^/]*$/, "") + location.search); } catch (_e) {
+      try { location.hash = h; } catch (_e2) {}
+    }
+  }
+  function applyHash() {
+    if (!location.hash || location.hash.length < 2) return;
+    hashApplying = true;
+    try {
+      const params = new URLSearchParams(location.hash.slice(1));
+      const hc = params.get("t");
+      if (hc) {
+        const t = Sim.trains().find(x => x.headcode === decodeURIComponent(hc));
+        if (t) selectTrain(t.id);
+      } else if (params.get("stn")) {
+        const code = params.get("stn");
+        const st = STATIONS[code];
+        if (st) { map.setView([st.lat, st.lng], 9); openBoard(code); }
+      } else if (params.get("spot")) {
+        const [la, ln] = params.get("spot").split(",").map(Number);
+        if (isFinite(la) && isFinite(ln)) setSpot({ lat: la, lng: ln });
+      }
+    } catch (_e) {}
+    hashApplying = false;
+  }
+
+  /* ---- scenic layer ---- */
+  function buildScenic() {
+    if (scenicLayer) { scenicLayer.remove(); scenicLayer = null; }
+    if (!$("scenictoggle") || !$("scenictoggle").checked) return;
+    scenicLayer = L.layerGroup();
+    const G = { summit: "\u25b2", viaduct: "\u23da", tunnel: "\u25d4", loop: "\u25ce", seawall: "\u2248", museum: "\u2605", landmark: "\u25c6" };
+    for (const s of SCENIC) {
+      L.marker([s.lat, s.lng], {
+        icon: L.divIcon({ className: "", html: `<div class="scpin ${s.type}" role="img" aria-label="${s.name}"><span>${G[s.type] || "\u2022"}</span></div>`, iconSize: [26, 26], iconAnchor: [13, 26] }),
+        zIndexOffset: 300
+      }).addTo(scenicLayer)
+        .bindTooltip(`<b>${s.name}</b><br>${s.note}`, { className: "stn-label", direction: "top", offset: [0, -28] })
+        .on("click", () => map.flyTo([s.lat, s.lng], Math.max(map.getZoom(), 10), { duration: 1 }));
+    }
+    scenicLayer.addTo(map);
+  }
+
+  /* ---- help overlay ---- */
+  function openKeys() { $("keys").classList.remove("hidden"); }
+  function closeKeys() { $("keys").classList.add("hidden"); }
+
   const realTick = () => Sim.tick(250);
 
   function loop() {
@@ -866,5 +1211,7 @@
 
   init();
 
-  window.__rr = { setSpot: (lat, lng) => setSpot({ lat, lng }), openInsights, closeInsights, renderSpotList, spot: () => spot, select: (id) => selectTrain(id), goLive, pan: (lat, lng) => map.setView([lat, lng], map.getZoom() + 2) };
+  renderWatchbox();
+
+  window.__rr = { setSpot: (lat, lng) => setSpot({ lat, lng }), openInsights, closeInsights, renderSpotList, spot: () => spot, select: (id) => selectTrain(id), goLive, pan: (lat, lng) => map.setView([lat, lng], map.getZoom() + 2), openLife, toggleWatch, toggleSeen: (id) => { const t = Sim.trainById(id); if (t) toggleLifeEntry("units", t.stockId + "::" + t.unitNumber); }, lifelist: () => lifelist, writeHash, applyHash, buildScenic, sunTimes: (ms, lat, lng) => sunTimes(ms, lat, lng), isGolden: (ms) => isGoldenHour(ms, spot ? spot.lat : 40, spot ? spot.lng : -95), openKeys };
 })();

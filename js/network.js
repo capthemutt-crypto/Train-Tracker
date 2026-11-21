@@ -1,5 +1,7 @@
 const OPERATORS = {
   amtrak: { code: "AK", name: "Amtrak", color: "#2e5fa3", region: "us" },
+  bnsf: { code: "BN", name: "BNSF Railway", color: "#e07020", region: "us" },
+  nsc: { code: "NS", name: "Norfolk Southern", color: "#7b2d26", region: "us" },
   awc: { code: "AW", name: "Avanti West Coast", color: "#c8102e", region: "uk" },
   lner: { code: "LR", name: "LNER", color: "#8b1d41", region: "uk" },
   gwr: { code: "GW", name: "Great Western Railway", color: "#0a6c46", region: "uk" },
@@ -7,7 +9,10 @@ const OPERATORS = {
   tpe: { code: "TP", name: "TransPennine Express", color: "#00a08a", region: "uk" },
   nr: { code: "NT", name: "Northern", color: "#d6472e", region: "uk" },
   ga: { code: "GA", name: "Greater Anglia", color: "#1d4f91", region: "uk" },
-  sr: { code: "SC", name: "ScotRail", color: "#504a9e", region: "uk" }
+  sr: { code: "SC", name: "ScotRail", color: "#504a9e", region: "uk" },
+  freightliner: { code: "FL", name: "Freightliner", color: "#7dba36", region: "uk" },
+  dbuk: { code: "DB", name: "DB Cargo UK", color: "#963b3b", region: "uk" },
+  svtr: { code: "VT", name: "Vintage Trains", color: "#3b2f6b", region: "uk" }
 };
 
 const REGIONS = [
@@ -169,151 +174,250 @@ const STATIONS = {
 const STOCK = {
   acela: {
     name: "Acela (Alstom Avelia Liberty)", power: "Electric — 12 kV / 25 kV catenary",
-    maxSpeed: 160, cars: [9], maker: "Alstom, Hornell NY", built: "2019–2024",
-    note: "America's fastest scheduled trains: 150 mph running on the Northeast Corridor, with active tilt through the curves."
+    maxSpeed: 160, typical: 150, cars: [9], maker: "Alstom, Hornell NY", built: "2019–2024",
+    note: "America's fastest scheduled trains: 150 mph running on the Northeast Corridor, with active tilt through the curves.",
+    fact: "An Avelia Liberty test set touched 165 mph on the NEC in 2021 — the fastest US rail speed since the Metroliners. Only 4° of tilt is used: more made passengers queasy."
   },
   "p42sl": {
     name: "GE P42DC 'Genesis' + Superliner consist", power: "Diesel-electric — 4,250 hp",
-    maxSpeed: 110, cars: [8, 10], maker: "GE Transportation, Grove City PA", built: "1997–2005",
-    note: "The workhorse of Amtrak's western long-distance routes: double-deck Superliner coaches, Sleepers, Dining and a Sightseer Lounge."
+    maxSpeed: 110, typical: 79, cars: [8, 10], maker: "GE Transportation, Grove City PA", built: "1997–2005",
+    note: "The workhorse of Amtrak's western long-distance routes: double-deck Superliner coaches, Sleepers, Dining and a Sightseer Lounge.",
+    fact: "The P42 can slew from HEP generators to traction at the flick of a switch — on cold nights power goes to the coaches first and the train just goes slower."
   },
   "p42vl": {
     name: "P42DC Genesis + Viewliner consist", power: "Diesel-electric — 4,250 hp",
-    maxSpeed: 100, cars: [7, 9], maker: "GE Transportation / American Car & Foundry", built: "Viewliners: 1995–2022",
-    note: "Single-level Viewliner Sleepers and Diners for the eastern overnight network — lower-platform friendly."
+    maxSpeed: 100, typical: 75, cars: [7, 9], maker: "GE Transportation / American Car & Foundry", built: "Viewliners: 1995–2022",
+    note: "Single-level Viewliner Sleepers and Diners for the eastern overnight network — lower-platform friendly.",
+    fact: "The Viewliner II fleet is the last new cars built by American Car & Foundry, a builder whose heritage goes back to the Pullman era."
   },
   "genesis_amf": {
     name: "P32-8WH 'Genesis' + Amfleet coaches", power: "Diesel-electric — 4,000 hp (HEP from the locomotive)",
-    maxSpeed: 110, cars: [5, 7], maker: "GE Transportation / Budd Company", built: "Amfleet: 1975–1983",
-    note: "Amfleet I & II — the distinctive stainless Budd fleet that has carried the Northeast for 50 years."
+    maxSpeed: 110, typical: 75, cars: [5, 7], maker: "GE Transportation / Budd Company", built: "Amfleet: 1975–1983",
+    note: "Amfleet I & II — the distinctive stainless Budd fleet that has carried the Northeast for 50 years.",
+    fact: "Amfleet shells were derived from the Budd Metroliner EMUs — look closely and the nose resembles the 1960s Metroliners still."
   },
   "p42hor": {
     name: "P32-8WH Genesis + Horizon coaches", power: "Diesel-electric — 4,000 hp",
-    maxSpeed: 100, cars: [6, 7], maker: "GE Transportation / Bombardier", built: "Horizon: 1988–1990",
-    note: "Horizon-fleet midwestern corridor services; being replaced by Amtrak Airo."
+    maxSpeed: 100, typical: 75, cars: [6, 7], maker: "GE Transportation / Bombardier", built: "Horizon: 1988–1990",
+    note: "Horizon-fleet midwestern corridor services; being replaced by Amtrak Airo.",
+    fact: "Horizon cars were to Bombardier's Comet commuter design, fitted out for long-distance day travel — and they have outlived several intended replacements."
   },
   airo: {
     name: "Amtrak Airo (ALC-42E Charger + Venture)", power: "Dual-mode — diesel / electric overhead",
-    maxSpeed: 125, cars: [7, 8], maker: "Siemens Mobility, Sacramento CA", built: "2024–2027 (entering service)",
-    note: "Amtrak's new corridor fleet — USB at every seat, larger windows, push-pull operation."
+    maxSpeed: 125, typical: 95, cars: [7, 8], maker: "Siemens Mobility, Sacramento CA", built: "2024–2027 (entering service)",
+    note: "Amtrak's new corridor fleet — USB at every seat, larger windows, push-pull operation.",
+    fact: "The ALC-42E Charger is a 'remanufactured-content' design: new shell around proven F125 running gear, a trick Amtrak negotiated to satisfy Buy America."
   },
   "sc44v": {
     name: "Siemens SC-44 Charger + Venture cars", power: "Diesel-electric — 4,400 hp",
-    maxSpeed: 125, cars: [5, 7], maker: "Siemens Mobility, Sacramento CA", built: "2017–2023",
-    note: "State-supported corridor fleets across California, the Midwest, the Pacific Northwest and Pennsylvania."
+    maxSpeed: 125, typical: 90, cars: [5, 7], maker: "Siemens Mobility, Sacramento CA", built: "2017–2023",
+    note: "State-supported corridor fleets across California, the Midwest, the Pacific Northwest and Pennsylvania.",
+    fact: "The SC-44 meets Tier 4 emissions — the cleanest diesel locomotives ever required — while making 4,400 hp from a 16-cylinder Cummins."
   },
   "390": {
     name: "Class 390 'Pendolino'", power: "Electric — 25 kV AC OHLE",
-    maxSpeed: 140, cars: [9, 11], maker: "Alstom, Washwood Heath", built: "2002–2005",
-    note: "Tilting body EMU, 3+2 seating in Standard. Fleet of 98 units."
+    maxSpeed: 140, typical: 110, cars: [9, 11], maker: "Alstom, Washwood Heath", built: "2002–2005",
+    note: "Tilting body EMU, 3+2 seating in Standard. Fleet of 98 units.",
+    fact: "Pendolinos were designed to 140 mph but the in-cab signalling needed for that speed was never installed — all units are capped at 125 in commercial service."
   },
   "802": {
     name: "Class 802 'Intercity Express Train'", power: "Bi-mode — OHLE / MTU diesel engines",
-    maxSpeed: 125, cars: [5, 9], maker: "Hitachi, Newton Aycliffe", built: "2017–2019",
-    note: "Part of the Intercity Express Programme replacing HSTs and InterCity 125 sets."
+    maxSpeed: 125, typical: 100, cars: [5, 9], maker: "Hitachi, Newton Aycliffe", built: "2017–2019",
+    note: "Part of the Intercity Express Programme replacing HSTs and InterCity 125 sets.",
+    fact: "On the Great Western route the Class 802 spends most of its journey under the wires and 'converts' to diesel somewhere past Hanwell — passengers rarely notice the swap."
   },
   "800": {
     name: "Class 800 'Azuma'", power: "Bi-mode — OHLE / diesel engines",
-    maxSpeed: 125, cars: [5, 9], maker: "Hitachi, Newton Aycliffe", built: "2018–2020",
-    note: "LNER's flagship fleet; named on launch services in 2019."
+    maxSpeed: 125, typical: 100, cars: [5, 9], maker: "Hitachi, Newton Aycliffe", built: "2018–2020",
+    note: "LNER's flagship fleet; named on launch services in 2019.",
+    fact: "'Azuma' means 'east' in Japanese — chosen by LNER to nod to Hitachi's Japanese engineering roots."
   },
   "801": {
     name: "Class 801 'Azuma'", power: "Electric — 25 kV AC OHLE",
-    maxSpeed: 125, cars: [5, 9], maker: "Hitachi, Newton Aycliffe", built: "2018–2020",
-    note: "Electric-only Azuma variant with small diesel 'last-mile' engines."
+    maxSpeed: 125, typical: 100, cars: [5, 9], maker: "Hitachi, Newton Aycliffe", built: "2018–2020",
+    note: "Electric-only Azuma variant with small diesel 'last-mile' engines.",
+    fact: "Because the East Coast is electrified the whole way, Class 801s' tiny diesel 'last-mile' engines are used so rarely that some sets have them removed."
   },
   "221": {
     name: "Class 221 'Super Voyager'", power: "Diesel-electric — Cummins QSK19",
-    maxSpeed: 125, cars: [4, 5], maker: "Bombardier, Bruges", built: "2001–2002",
-    note: "Tilting sister of the Voyager fleet, used on the cross-country network."
+    maxSpeed: 125, typical: 100, cars: [4, 5], maker: "Bombardier, Bruges", built: "2001–2002",
+    note: "Tilting sister of the Voyager fleet, used on the cross-country network.",
+    fact: "Class 221s tilt like Pendolinos but on diesel power — CrossCountry trains lean through the curve-clotted Cotswold line at line speed."
   },
   "220": {
     name: "Class 220 'Voyager'", power: "Diesel-electric — Cummins QSK19",
-    maxSpeed: 125, cars: [4], maker: "Bombardier, Bruges", built: "2001–2002",
-    note: "Non-tilting Voyager; mainstay of CrossCountry diagrams since 2002."
+    maxSpeed: 125, typical: 100, cars: [4], maker: "Bombardier, Bruges", built: "2001–2002",
+    note: "Non-tilting Voyager; mainstay of CrossCountry diagrams since 2002.",
+    fact: "Voyagers shout: produced under-floor is the distinctive Cummins QSK19 'bark' enthusiasts identify by ear alone, station by station."
   },
   "185": {
     name: "Class 185 'Desiro'", power: "Diesel-mechanical — Cummins QSK19",
-    maxSpeed: 100, cars: [3], maker: "Siemens, Uerdingen", built: "2005–2007",
-    note: "TransPennine Express workhorse; distinctive twin headlights."
+    maxSpeed: 100, typical: 75, cars: [3], maker: "Siemens, Uerdingen", built: "2005–2007",
+    note: "TransPennine Express workhorse; distinctive twin headlights.",
+    fact: "The Class 185 tackles the Pennine route via mechanical transmission — rare on a 100 mph train — which is part of the whistle-and-thud soundtrack of Standedge."
   },
   "397": {
     name: "Class 397 'Caledonian'", power: "Electric — 25 kV AC OHLE",
-    maxSpeed: 100, cars: [4], maker: "CAF, Spain", built: "2019–2021",
-    note: "Named after the historic Caledonian Railway; used on Transpennine Scottish routes."
+    maxSpeed: 100, typical: 85, cars: [4], maker: "CAF, Spain", built: "2019–2021",
+    note: "Named after the historic Caledonian Railway; used on Transpennine Scottish routes.",
+    fact: "'Caledonian' was picked in a public vote as a tribute to the Caledonian Railway, whose blue livery tint inspired the interior trim."
   },
   "195": {
     name: "Class 195 'CAF Civity'", power: "Diesel-mechanical — Cummins",
-    maxSpeed: 100, cars: [2, 3], maker: "CAF, Spain", built: "2019–2020",
-    note: "Northern's modern diesel fleet replacing Class 158s on regional services."
+    maxSpeed: 100, typical: 70, cars: [2, 3], maker: "CAF, Spain", built: "2019–2020",
+    note: "Northern's modern diesel fleet replacing Class 158s on regional services.",
+    fact: "Class 195 interiors were based on passenger focus groups — wider aisles were rejected because it would cost two seats per coach."
   },
   "331": {
     name: "Class 331 'CEF Civity'", power: "Electric — 25 kV AC OHLE",
-    maxSpeed: 100, cars: [3, 4], maker: "CAF, Spain", built: "2018–2020",
-    note: "Northern's electric Civity fleet for the North West electrified lines."
+    maxSpeed: 100, typical: 70, cars: [3, 4], maker: "CAF, Spain", built: "2018–2020",
+    note: "Northern's electric Civity fleet for the North West electrified lines.",
+    fact: "Civity is Spanish for 'community' — CAF's modular platform let Northern add exactly the coach mix needed per route."
   },
   "720": {
     name: "Class 720 'Aventra'", power: "Electric — 25 kV AC OHLE",
-    maxSpeed: 100, cars: [10, 12], maker: "Bombardier/Alstom, Derby", built: "2019–2022",
-    note: "Walk-through Aventra fleet that brought long 12-car trains to East Anglia."
+    maxSpeed: 100, typical: 65, cars: [10, 12], maker: "Bombardier/Alstom, Derby", built: "2019–2022",
+    note: "Walk-through Aventra fleet that brought long 12-car trains to East Anglia.",
+    fact: "Class 720s are the longest scheduled domestic trains in Britain at 241 m — over 40 m longer than Europe's standard 200 m platforms allow elsewhere."
   },
   "385": {
     name: "Class 385 'Hitachi AT300'", power: "Electric — 25 kV AC OHLE",
-    maxSpeed: 100, cars: [3, 4], maker: "Hitachi, Newton Aycliffe", built: "2017–2019",
-    note: "Replaced Class 380s and Class 318s on Greater Glasgow electrified routes."
+    maxSpeed: 100, typical: 75, cars: [3, 4], maker: "Hitachi, Newton Aycliffe", built: "2017–2019",
+    note: "Replaced Class 380s and Class 318s on Greater Glasgow electrified routes.",
+    fact: "Class 385s were delayed by software that had not been tested against the steep Glasgow–Edinburgh route profile — not a mechanical problem at all."
   },
   "43": {
     name: "Class 43 'InterCity 125' power cars", power: "Diesel-hydraulic — Paxman Valenta/VP185",
-    maxSpeed: 125, cars: [7], maker: "BREL, Crewe", built: "1976–1982",
-    note: "Kept the world diesel speed record (148 mph) for 37 years. 'Castle' sets carry named power cars."
+    maxSpeed: 125, typical: 95, cars: [7], maker: "BREL, Crewe", built: "1976–1982",
+    note: "Kept the world diesel speed record (148 mph) for 37 years. 'Castle' sets carry named power cars.",
+    fact: "The world's fastest diesel locomotive titanium-rail record — 148 mph — still belongs to a Class 43 in daily work since 1976; the nearest rival came 37 years later."
+  },
+  sd70ace: {
+    name: "EMD SD70ACe", power: "Diesel-electric — 4,300 hp (16-710G3C-T2)",
+    maxSpeed: 70, typical: 45, cars: [12, 18], maker: "GM-EMD, London Ontario", built: "2005–2016",
+    note: "North America's standard heavy freight locomotive, hauling manifests, intermodal and unit trains across the continent.",
+    fact: "The SD70ACe's unmistakable hood with a stubby nose and air-smoothed radiator fans is often the last thing you hear — the 710 engine dominates frequency 3-way and is nicknamed 'chopper' by crews."
+  },
+  class66: {
+    name: "Class 66 'Shed'", power: "Diesel-electric — EMD 12-710",
+    maxSpeed: 75, typical: 60, cars: [12, 20], maker: "GM-EMD, London Ontario", built: "1998–2015",
+    note: "Britain's dominant freight locomotive: 480 of them, run by DB Cargo, Freightliner, GBRf, Colas and Rail Operations Group.",
+    fact: "Enthusiasts nickname the Class 66 a 'Shed' — over 450 run in Britain and, unlike anything else, one model has hauled nearly every freight diagram since 1999."
+  },
+  castle: {
+    name: "GWR 4073 'Castle' 4-6-0 steam", power: "Steam — 4 cylinders, GWR Swindon",
+    maxSpeed: 60, typical: 45, cars: [8], maker: "GWR Swindon Works", built: "1923–50 (survivors overhauled 2000s–2020s)",
+    note: "Great Western Railway express passenger locomotives pulling revived main-line steam specials — electric train supply tender behind, support coach at the rear.",
+    fact: "No. 5043 'Earl of Mount Edgcumbe' hauled trains from Paddington under its own steam as recently as 2019 — and has more route knowledge (and Telegram-era paperwork) than most crews."
   }
 };
 
-const R = (id, name, path, base, units, nums, service) => ({ id, name, path, base, units, nums, service });
+
+const ROUTE_INFO = {
+  "cal-zephyr": { since: 1949, blurb: "Amtrak's western showpiece: Chicago to the San Francisco Bay Area over the Mississippi, the Nebraska plains, Denver's Moffat Tunnel, the Colorado canyons, the Utah desert and Donner Pass. The Zephyr name goes back to the Burlington's record-setting 1934 Pioneer Zephyr." },
+  "empire-builder": { since: 1929, blurb: "Named for Great Northern's James J. Hill. Two decades of Marias Pass, Big Sky country, Spokane, the Columbia River gorge and Stevens Pass — the northern route of the Amtrak network." },
+  "sw-chief": { since: 1936, blurb: "The Santa Fe tradition: Chicago to Los Angeles via Kansas City, Raton Pass, Albuquerque and the high desert. The Chief name has run on this route continuously since 1926." },
+  "sunset": { since: 1916, blurb: "The oldest named train in the Amtrak system by lineage: the Southern Pacific Sunset Route from New Orleans to Los Angeles, via Houston, San Antonio and the borderlands deserts." },
+  "texas-eagle": { since: 1948, blurb: "Chicago to San Antonio via St. Louis, Little Rock and Dallas — the Missouri Pacific Eagle heritage, extended through cars for part of the year to Los Angeles." },
+  "city-no": { since: 1947, blurb: "The Illinois Central 'City of New Orleans' — Arlo Guthrie's 1972 song made it famous. Overnight run down the Mississippi valley from Chicago to the Big Easy." },
+  "lake-shore": { since: 1971, blurb: "Amtrak's New York – Cleveland – Chicago overnighter along the shore of Lake Erie, the descendant of the New York Central's 20th Century Limited corridor." },
+  "capitol": { since: 1981, blurb: "The B&O Capital Limited: Washington – Harpers Ferry – Cumberland – Pittsburgh – Chicago over the historic Baltimore & Ohio, the first common-carrier railroad in the United States." },
+  "cardinal": { since: 1977, blurb: "Washington to Chicago via the New River Gorge in West Virginia — three days a week, and one of the most scenic daytime rides in the network." },
+  "crescent": { since: 1925, blurb: "The Southern Railway Crescent, New York to New Orleans via Charlottesville, Atlanta and the Deep South. The name dates to 1925 and survives Amtrak-unchanged." },
+  "silver-met": { since: 1939, blurb: "One of the two Seaboard Silver services, New York to Miami via Richmond, Savannah and Jacksonville. The Meteor is the inland (better punctuality) twin." },
+  "silver-star": { since: 1939, blurb: "The other Seaboard Silver train — New York to Miami via Richmond, Columbia and the Carolinas, the longer and busier of the two." },
+  "auto-train": { since: 1971, blurb: "The only scheduled train in the western hemisphere that carries passengers and their cars: Lorton, Virginia to Sanford, Florida, a 17-hour 1,400 km run on CSX." },
+  acela: { since: 2000, blurb: "Amtrak's flagship high-speed service, between Washington, New York and Boston. Tilting Avelia Liberty sets have run since 2021; express schedules undercut every other US train by an hour or more." },
+  "nec-reg": { since: 1971, blurb: "The workhorse Northeast Regional services — hourly-frequency Amfleet trains on the same spine as the Acela, with branches beyond the core corridor." },
+  pennsylvanian: { since: 1983, blurb: "New York – Harrisburg – Pittsburgh over the Pennsylvania Railroad's Main Line. Reverses through the famous Horseshoe Curve outside Altoona, opened in 1854 as one of the engineering wonders of its age." },
+  "maple-leaf": { since: 1981, blurb: "New York to Toronto through the Finger Lakes and along the Niagara gorge, with customs formalities on board at the border." },
+  adirondack: { since: 1971, blurb: "New York to Montréal through the Adirondacks along Lake Champlain — regularly voted one of North America's most scenic rides." },
+  downeaster: { since: 2001, blurb: "Boston to Portland, Maine — the first new Amtrak service beyond the 1971 network map, run by the Northern New England Passenger Rail Authority." },
+  "starlight": { since: 1971, blurb: "The Coast Starlight: 2,200 km down the Pacific coast from Seattle to Los Angeles via the Cascades, Mount Shasta, the Bay Area and the Santa Barbara channel." },
+  cascades: { since: 1980, blurb: "State-supported Talgo/Sierra sets between Vancouver BC and Eugene — the only Amtrak service into Canada visible on an international ticket." },
+  wolverine: { since: 1971, blurb: "Chicago – Detroit via Kalamazoo — for years the fastest segment of any US train outside the Northeast, with 110 mph running in Michigan." },
+  hiawatha: { since: 1935, blurb: "The Milwaukee Road's Hiawatha streamliners of the 1930s were the fastest US trains of their era; today's 86-minute Chicago–Milwaukee run shows off their former 90 mph+ pacing." },
+  surfliner: { since: 2000, blurb: "The Surfliner corridor hugs the Pacific between San Luis Obispo, Los Angeles and San Diego — one of the busiest state-supported corridors in the country." },
+  wcml: { since: 1838, blurb: "The West Coast Main Line — Britain's busiest intercity railway, London Euston to Glasgow via Crewe, Carlisle, Shap summit and Beattock. Tilting Pendolinos reclaim the speeds the 1960s electrification promised." },
+  ecml: { since: 1848, blurb: "The East Coast Main Line, King's Cross to Edinburgh via York, Newcastle and Berwick — home of the Flying Scotsman, the 1938 126 mph Mallard record and the Azuma fleet." },
+  "gwr-w": { since: 1841, blurb: "Brunel's Great Western Main Line to the West Country, Paddington to Penzance via Bath, Bristol, Exeter and the famous sea wall at Dawlish." },
+  cathedrals: { since: 2008, blurb: "Vintage Trains' Tyseley-based main-line steam specials — Great Western Castle and Hall class locomotives on 'Cathedrals Express' excursions out of London Paddington." }
+};
+
+const SCENIC = [
+  { name: "Horseshoe Curve", lat: 40.4971, lng: -78.4794, type: "landmark", note: "Pennsylvania Railroad's 1854 answer to the Alleghenies — still in daily use. Viewing park on the inside of the curve." },
+  { name: "Cajon Pass", lat: 34.35, lng: -117.38, type: "summit", note: "The Pacific spike: BNSF and UP climb 2,210 ft over the San Gabriel foothills above the 1880s summit. Wildly popular photo spot near the wye." },
+  { name: "Donner Pass", lat: 39.31, lng: -120.34, type: "summit", note: "Southern Pacific's 1860s crossing of the Sierra. Snowsheds and granite tunnel galleries line the former right of way." },
+  { name: "Tehachapi Loop", lat: 35.20, lng: -118.54, type: "loop", note: "Southern Pacific's 1876 spiral: 1.1 km loops over itself as the line climbs 100 ft. Rarely photographed with a train anywhere else in the world." },
+  { name: "Marias Pass", lat: 48.31, lng: -113.35, type: "summit", note: "Great Northern's lowest continental-divide crossing: 5,213 ft. Sheephole bends and the Blackfeet Reservation dominate the view." },
+  { name: "Raton Pass", lat: 36.99, lng: -104.48, type: "summit", note: "SW Chief climbs the Sangre de Cristo divide on the old Santa Fe Trail route." },
+  { name: "Moffat Tunnel", lat: 39.87, lng: -105.65, type: "tunnel", note: "6.2 mi bore under the Continental Divide at 9,239 ft — opened 1928, still carries the California Zephyr." },
+  { name: "Stevens Pass", lat: 47.74, lng: -121.35, type: "summit", note: "Great Northern's 1889 crossing, named for John Frank Stevens. Famous for the horror of the 1910 Wellington avalanche." },
+  { name: "Siskiyou Summit", lat: 41.99, lng: -122.35, type: "summit", note: "The Coast Starlight crests 4,310 ft on the old Southern Pacific through the Siskiyous." },
+  { name: "Forth Bridge", lat: 56.00, lng: -3.39, type: "viaduct", note: "The iconic 1890 cantilever bridge over the Firth of Forth — still carrying the East Coast Main Line. UNESCO listed." },
+  { name: "Ribblehead Viaduct", lat: 54.21, lng: -2.29, type: "viaduct", note: "Settle–Carlisle's great 24-arch viaduct in the Yorkshire Dales. The Carlisle trains pass over it between remote moorland stations." },
+  { name: "Box Tunnel", lat: 51.43, lng: -2.25, type: "tunnel", note: "Brunel's 2.9 km Box Tunnel through the Cotswold chalk — for 100 years it was the longest railway tunnel in Britain." },
+  { name: "Glenfinnan Viaduct", lat: 56.87, lng: -5.46, type: "viaduct", note: "21-arch concrete viaduct of Jacobite steam-train and Hogwarts Express fame. Best photographed in the morning." },
+  { name: "Ais Gill", lat: 54.30, lng: -2.33, type: "summit", note: "1,169 ft summit of the Settle–Carlisle line — the highest main-line point in England." },
+  { name: "Dawlish sea wall", lat: 50.57, lng: -3.47, type: "seawall", note: "Trains run right along the beach wall between Dawlish and Dawlish Warren. High tide and south-westers are the drama." },
+  { name: "National Railway Museum, York", lat: 53.96, lng: -1.09, type: "museum", note: "Britain's national railway collection: Mallard, Flying Scotsman, Shinkansen, and TGV are all under one roof." },
+  { name: "California State Railroad Museum", lat: 38.58, lng: -121.51, type: "museum", note: "Sacramento's first-rate collection — restored steam, Pullman sleeping car, and Sunday train rides on the Delta King line." },
+  { name: "B&O Railroad Museum", lat: 39.27, lng: -76.63, type: "museum", note: "Baltimore — home of the first American railroad. Roundhouse rotunda with Civil-War-era locomotives." },
+  { name: "Strasburg Rail Road", lat: 40.03, lng: -76.17, type: "museum", note: "Pennsylvania Dutch country's operating steam shortline, next door to the Railroad Museum of Pennsylvania." }
+];
+
+const R = (id, name, path, base, units, nums, service, type) => ({ id, name, path, base, units, nums, service, type: type || "pass" });
 
 const ROUTES = [
-  R("acela", "Northeast Corridor — Acela: Boston ↔ Washington", ["BOS", "PRV", "NHV", "NYP", "PHL", "BAL", "WAS"], 145, [["acela", 9]], [2150, 2250], { first: 330, last: 1230, every: 90 }),
-  R("nec-reg", "Northeast Regional: Boston ↔ Washington", ["BOS", "PRV", "NHV", "NYP", "PHL", "BAL", "WAS"], 120, [["genesis_amf", 6], ["genesis_amf", 5]], [100, 110], { first: 300, last: 1350, every: 50 }),
-  R("keystone", "Keystone Service: New York ↔ Harrisburg", ["NYP", "PHL", "HAR"], 110, [["sc44v", 6]], [640, 650], { first: 330, last: 1320, every: 70 }),
-  R("empire", "Empire Service: New York ↔ Buffalo", ["NYP", "ALB", "SYR", "ROC", "BUF"], 100, [["genesis_amf", 6]], [280, 240], { first: 330, last: 1320, every: 160 }),
-  R("maple-leaf", "Maple Leaf: New York ↔ Toronto", ["NYP", "ALB", "SYR", "ROC", "BUF", "@43.10,-79.20", "@43.47,-79.72", "TOR"], 95, [["p42vl", 7]], [63, 64], { first: 600, last: 1320, every: 1440 }),
-  R("adirondack", "Adirondack: New York ↔ Montréal", ["NYP", "ALB", "@43.75,-73.64", "@44.69,-73.44", "MTL"], 95, [["genesis_amf", 5]], [68, 69], { first: 600, last: 1320, every: 1440 }),
-  R("vermonter", "Vermonter: Washington ↔ St. Albans", ["WAS", "BAL", "PHL", "NYP", "SPR", "WRI", "STAJ"], 90, [["genesis_amf", 5]], [55, 54], { first: 480, last: 1320, every: 1440 }),
-  R("downeaster", "Downeaster: Boston ↔ Portland ME", ["BOS", "PME"], 90, [["genesis_amf", 5]], [680, 685], { first: 330, last: 1320, every: 200 }),
-  R("crescent", "Crescent: New York ↔ New Orleans", ["NYP", "PHL", "BAL", "WAS", "CVL", "GRO", "CLT", "ATL", "BIR", "NOL"], 95, [["p42vl", 9]], [19, 20], { first: 600, last: 1320, every: 1440 }),
-  R("silver-met", "Silver Meteor: New York ↔ Miami", ["NYP", "WAS", "CHS", "SAV", "ORL", "MIA"], 95, [["p42vl", 9]], [97, 98], { first: 600, last: 1320, every: 1440 }),
+  R("acela", "Northeast Corridor — Acela: Boston ↔ Washington", ["BOS","@42.16,-71.03","PRV","@41.57,-71.56","@41.35,-71.96","NHV","@41.23,-72.99","@41.05,-73.54","NYP","PHL","@39.85,-75.36","@39.74,-75.56","BAL","@39.08,-76.70","WAS"], 145, [["acela", 9]], [2150, 2250], { first: 330, last: 1230, every: 90 }),
+  R("nec-reg", "Northeast Regional: Boston ↔ Washington", ["BOS","@42.16,-71.03","PRV","@41.57,-71.56","@41.35,-71.96","NHV","@41.23,-72.99","@41.05,-73.54","NYP","PHL","@39.85,-75.36","@39.74,-75.56","BAL","@39.08,-76.70","WAS"], 120, [["genesis_amf", 6], ["genesis_amf", 5]], [100, 110], { first: 300, last: 1350, every: 50 }),
+  R("keystone", "Keystone Service: New York ↔ Harrisburg", ["NYP","PHL","@40.04,-75.50","@39.96,-75.92","HAR"], 110, [["sc44v", 6]], [640, 650], { first: 330, last: 1320, every: 70 }),
+  R("empire", "Empire Service: New York ↔ Buffalo", ["NYP","@41.17,-73.94","@41.70,-73.93","@42.25,-73.79","ALB","@43.10,-75.23","SYR","ROC","@43.00,-78.00","BUF"], 100, [["genesis_amf", 6]], [280, 240], { first: 330, last: 1320, every: 160 }),
+  R("maple-leaf", "Maple Leaf: New York ↔ Toronto", ["NYP","@41.17,-73.94","@41.70,-73.93","@42.25,-73.79","ALB","@43.10,-75.23","SYR","ROC","@43.00,-78.00","BUF","@43.10,-79.20","@43.47,-79.72","TOR"], 95, [["p42vl", 7]], [63, 64], { first: 600, last: 1320, every: 1440 }),
+  R("adirondack", "Adirondack: New York ↔ Montréal", ["NYP","ALB","@43.08,-73.78","@43.75,-73.64","@44.69,-73.44","MTL"], 95, [["genesis_amf", 5]], [68, 69], { first: 600, last: 1320, every: 1440 }),
+  R("vermonter", "Vermonter: Washington ↔ St. Albans", ["WAS","BAL","PHL","NYP","NHV","SPR","@42.85,-72.56","WRI","STAJ"], 90, [["genesis_amf", 5]], [55, 54], { first: 480, last: 1320, every: 1440 }),
+  R("downeaster", "Downeaster: Boston ↔ Portland ME", ["BOS","@42.98,-71.29","@43.21,-70.88","PME"], 90, [["genesis_amf", 5]], [680, 685], { first: 330, last: 1320, every: 200 }),
+  R("crescent", "Crescent: New York ↔ New Orleans", ["NYP","PHL","BAL","WAS","@38.75,-77.48","CVL","@37.41,-79.14","GRO","CLT","ATL","BIR","NOL"], 95, [["p42vl", 9]], [19, 20], { first: 600, last: 1320, every: 1440 }),
+  R("silver-met", "Silver Meteor: New York ↔ Miami", ["NYP","WAS","CHS","@32.68,-80.86","SAV","ORL","MIA"], 95, [["p42vl", 9]], [97, 98], { first: 600, last: 1320, every: 1440 }),
   R("silver-star", "Silver Star: New York ↔ Miami", ["NYP", "WAS", "RVM", "CAE", "JAX", "ORL", "MIA"], 95, [["p42vl", 9]], [91, 92], { first: 600, last: 1320, every: 1440 }),
-  R("auto-train", "Auto Train: Lorton ↔ Sanford", ["LOR", "SFD"], 85, [["p42sl", 10]], [52, 53], { first: 900, last: 1320, every: 1440 }),
-  R("carolinian", "Carolinian: New York ↔ Charlotte", ["NYP", "BAL", "WAS", "RVM", "RAL", "CLT"], 95, [["genesis_amf", 6]], [79, 80], { first: 480, last: 1320, every: 1440 }),
+  R("auto-train", "Auto Train: Lorton ↔ Sanford", ["LOR","@38.30,-77.46","RVM","@35.94,-77.80","@35.05,-78.88","CHS","SAV","JAX","@29.65,-81.64","SFD"], 85, [["p42sl", 10]], [52, 53], { first: 900, last: 1320, every: 1440 }),
+  R("carolinian", "Carolinian: New York ↔ Charlotte", ["NYP","PHL","BAL","WAS","@38.75,-77.48","RVM","RAL","CLT"], 95, [["genesis_amf", 6]], [79, 80], { first: 480, last: 1320, every: 1440 }),
   R("lake-shore", "Lake Shore Limited: New York ↔ Chicago", ["NYP", "ALB", "SYR", "ROC", "BUF", "@42.13,-80.09", "CLE", "@41.42,-82.44", "TOL", "CHI"], 95, [["p42vl", 8]], [48, 49], { first: 600, last: 1320, every: 1440 }),
-  R("capitol", "Capitol Limited: Washington ↔ Chicago", ["WAS", "PIT", "CLE", "@41.42,-82.44", "TOL", "CHI"], 90, [["p42vl", 8]], [29, 30], { first: 900, last: 1320, every: 1440 }),
-  R("cardinal", "Cardinal: Washington ↔ Chicago", ["WAS", "CVL", "CHW", "CIN", "IND", "CHI"], 85, [["p42vl", 7]], [50, 51], { first: 900, last: 1320, every: 1440 }),
-  R("empire-builder", "Empire Builder: Chicago ↔ Seattle", ["CHI", "@42.08,-87.76", "@42.60,-87.86", "MKE", "MSP", "FGO", "MOT", "WHF", "SPO", "SEA"], 90, [["p42sl", 10], ["p42sl", 8]], [7, 8], { first: 870, last: 1320, every: 1440 }),
-  R("cal-zephyr", "California Zephyr: Chicago ↔ Emeryville", ["CHI", "@41.72,-88.20", "OMA", "DEN", "GJT", "SLC", "RNO", "SAC", "EME"], 90, [["p42sl", 10], ["p42sl", 8]], [5, 6], { first: 840, last: 1320, every: 1440 }),
-  R("sw-chief", "Southwest Chief: Chicago ↔ Los Angeles", ["CHI", "KCY", "ABQ", "FLG", "SNB", "LAX"], 90, [["p42sl", 10]], [3, 4], { first: 915, last: 1320, every: 1440 }),
-  R("sunset", "Sunset Limited: Los Angeles ↔ New Orleans", ["LAX", "TUS", "ELP", "SAS", "HOU", "@30.08,-94.10", "@30.23,-93.22", "@30.22,-92.02", "NOL"], 80, [["p42sl", 10]], [1, 2], { first: 600, last: 1320, every: 1440 }),
-  R("texas-eagle", "Texas Eagle: Chicago ↔ San Antonio", ["CHI", "STL", "LIT", "DAL", "SAS"], 95, [["p42sl", 10]], [21, 22], { first: 810, last: 1320, every: 1440 }),
-  R("city-no", "City of New Orleans: Chicago ↔ New Orleans", ["CHI", "MEM", "JAN", "NOL"], 95, [["p42sl", 9]], [58, 59], { first: 1250, last: 1320, every: 1440 }),
-  R("wolverine", "Wolverine: Chicago ↔ Detroit", ["CHI", "@41.72,-86.90", "KAL", "ANN", "DET"], 100, [["p42hor", 6]], [353, 352], { first: 330, last: 1320, every: 160 }),
+  R("capitol", "Capitol Limited: Washington ↔ Chicago", ["WAS","@39.32,-77.73","@39.65,-78.76","PIT","CLE","@41.42,-82.44","TOL","CHI"], 90, [["p42vl", 8]], [29, 30], { first: 900, last: 1320, every: 1440 }),
+  R("cardinal", "Cardinal: Washington ↔ Chicago", ["WAS","@38.75,-77.48","CVL","CHW","CIN","IND","CHI"], 85, [["p42vl", 7]], [50, 51], { first: 900, last: 1320, every: 1440 }),
+  R("empire-builder", "Empire Builder: Chicago ↔ Seattle", ["CHI","@42.08,-87.76","@42.60,-87.86","MKE","@43.80,-91.24","@44.05,-91.63","@44.56,-92.53","MSP","@45.56,-94.16","FGO","@47.92,-97.04","@48.11,-98.86","@48.37,-100.00","MOT","@48.63,-112.33","@48.45,-113.22","WHF","@48.39,-115.55","@48.27,-116.55","SPO","@47.42,-120.31","@47.74,-121.35","SEA"], 90, [["p42sl", 10], ["p42sl", 8]], [7, 8], { first: 870, last: 1320, every: 1440 }),
+  R("cal-zephyr", "California Zephyr: Chicago ↔ Emeryville", ["CHI","@41.72,-88.20","@40.81,-96.68","@40.59,-98.38","OMA","@40.25,-103.80","DEN","@39.86,-105.64","@40.08,-105.94","GJT","@38.99,-110.16","@39.68,-110.71","@40.23,-111.66","SLC","@40.83,-115.76","@40.97,-117.74","RNO","@39.33,-120.18","@39.10,-120.95","@38.75,-121.28","SAC","EME"], 90, [["p42sl", 10], ["p42sl", 8]], [5, 6], { first: 840, last: 1320, every: 1440 }),
+  R("sw-chief", "Southwest Chief: Chicago ↔ Los Angeles", ["CHI","@39.05,-95.68","KCY","@37.75,-100.02","@38.04,-103.55","@36.90,-104.44","@35.59,-105.22","ABQ","@35.53,-108.74","@35.02,-110.70","FLG","@35.19,-114.05","@34.35,-117.38","SNB","@34.06,-117.65","@33.87,-117.91","LAX"], 90, [["p42sl", 10]], [3, 4], { first: 915, last: 1320, every: 1440 }),
+  R("sunset", "Sunset Limited: Los Angeles ↔ New Orleans", ["LAX","@34.10,-118.20","@32.25,-109.83","TUS","@32.30,-106.78","ELP","@30.36,-103.66","@29.36,-100.90","SAS","@29.51,-97.11","HOU","@30.08,-94.10","@30.23,-93.22","@30.22,-92.02","NOL"], 80, [["p42sl", 10]], [1, 2], { first: 600, last: 1320, every: 1440 }),
+  R("texas-eagle", "Texas Eagle: Chicago ↔ San Antonio", ["CHI","@41.53,-88.08","@40.48,-88.99","@39.80,-89.65","STL","@36.76,-90.40","@35.84,-90.70","LIT","@33.42,-94.04","DAL","@32.66,-95.49","SAS"], 95, [["p42sl", 10]], [21, 22], { first: 810, last: 1320, every: 1440 }),
+  R("city-no", "City of New Orleans: Chicago ↔ New Orleans", ["CHI","@40.11,-88.24","@37.73,-89.22","MEM","JAN","NOL"], 95, [["p42sl", 9]], [58, 59], { first: 1250, last: 1320, every: 1440 }),
+  R("wolverine", "Wolverine: Chicago ↔ Detroit", ["CHI","@41.72,-86.90","@42.32,-85.18","KAL","ANN","DET"], 100, [["p42hor", 6]], [353, 352], { first: 330, last: 1320, every: 160 }),
   R("hiawatha", "Hiawatha: Chicago ↔ Milwaukee", ["CHI", "@42.08,-87.76", "@42.60,-87.86", "MKE"], 90, [["sc44v", 6]], [329, 330], { first: 330, last: 1320, every: 110 }),
   R("lincoln", "Lincoln Service: Chicago ↔ St. Louis", ["CHI", "STL"], 100, [["sc44v", 7], ["airo", 7]], [300, 303], { first: 330, last: 1320, every: 130 }),
-  R("starlight", "Coast Starlight: Seattle ↔ Los Angeles", ["SEA", "PRT", "EUG", "RDD", "SAC", "EME", "SLO", "SBA", "LAX"], 90, [["p42sl", 10]], [11, 14], { first: 585, last: 1320, every: 1440 }),
-  R("surfliner", "Pacific Surfliner: Los Angeles ↔ San Diego", ["LAX", "ANA", "SDO"], 90, [["sc44v", 6], ["sc44v", 5]], [562, 573], { first: 330, last: 1350, every: 90 }),
+  R("starlight", "Coast Starlight: Seattle ↔ Los Angeles", ["SEA","@46.72,-122.95","@46.14,-122.94","PRT","EUG","@41.99,-122.35","RDD","SAC","@38.02,-122.13","EME","@36.68,-121.66","SLO","@34.28,-119.30","SBA","LAX"], 90, [["p42sl", 10]], [11, 14], { first: 585, last: 1320, every: 1440 }),
+  R("surfliner", "Pacific Surfliner: Los Angeles ↔ San Diego", ["LAX","ANA","@33.50,-117.66","@33.20,-117.38","@32.99,-117.27","SDO"], 90, [["sc44v", 6], ["sc44v", 5]], [562, 573], { first: 330, last: 1350, every: 90 }),
   R("cascades", "Amtrak Cascades: Vancouver ↔ Eugene", ["VAN", "@49.10,-122.66", "@48.75,-122.48", "@47.98,-122.20", "SEA", "PRT", "EUG"], 95, [["sc44v", 7]], [500, 517], { first: 390, last: 1140, every: 260 }),
-  R("san-joaquin", "San Joaquins: Oakland ↔ Bakersfield", ["OAK", "FNO", "BFL"], 85, [["sc44v", 5]], [712, 711], { first: 390, last: 1320, every: 240 }),
+  R("san-joaquin", "San Joaquins: Oakland ↔ Bakersfield", ["OAK","@37.96,-121.29","FNO","@36.33,-119.65","BFL"], 85, [["sc44v", 5]], [712, 711], { first: 390, last: 1320, every: 240 }),
   R("heartland", "Heartland Flyer: Oklahoma City ↔ Fort Worth", ["OKC", "FTW"], 90, [["p42hor", 5]], [800, 801], { first: 480, last: 1320, every: 1440 }),
-  R("wcml", "West Coast Main Line — Euston ↔ Glasgow Central", ["EUS", "MKC", "RUG", "NUN", "STF", "CRE", "PRE", "OXM", "PEN", "CAR", "LCB", "MTH", "GLC"], 125, [["390", 11], ["390", 9]], ["1S", "1M"], { first: 330, last: 1290, every: 45 }),
-  R("ecml", "East Coast Main Line — Kings Cross ↔ Edinburgh", ["KGX", "PBO", "GRN", "NNG", "DNC", "YRK", "NTL", "DAR", "DHM", "NCL", "BWK", "EDB"], 125, [["800", 9], ["801", 5], ["800", 5]], ["1N", "1E"], { first: 345, last: 1260, every: 50 }),
-  R("gwr-w", "Great Western Main Line — Paddington ↔ Penzance", ["PAD", "RDG", "DID", "SWI", "CPN", "BTH", "BTC", "TAU", "EXD", "NPT2", "PLY", "TRU", "PGE"], 110, [["802", 9], ["43", 7]], ["1C", "1A"], { first: 360, last: 1140, every: 70 }),
+  R("wcml", "West Coast Main Line — Euston ↔ Glasgow Central", ["EUS","MKC","RUG","NUN","STF","CRE","PRE","@54.05,-2.80","OXM","PEN","@54.52,-2.68","CAR","LCB","MTH","GLC"], 125, [["390", 11], ["390", 9]], ["1S", "1M"], { first: 330, last: 1290, every: 45 }),
+  R("ecml", "East Coast Main Line — Kings Cross ↔ Edinburgh", ["KGX","PBO","GRN","NNG","DNC","YRK","NTL","DAR","DHM","NCL","BWK","@55.38,-1.61","EDB"], 125, [["800", 9], ["801", 5], ["800", 5]], ["1N", "1E"], { first: 345, last: 1260, every: 50 }),
+  R("gwr-w", "Great Western Main Line — Paddington ↔ Penzance", ["PAD","RDG","DID","SWI","CPN","BTH","BTC","TAU","@50.79,-3.36","EXD","NPT2","PLY","TRU","PGE"], 110, [["802", 9], ["43", 7]], ["1C", "1A"], { first: 360, last: 1140, every: 70 }),
   R("gwr-sw", "Great Western Main Line — Paddington ↔ Swansea", ["PAD", "RDG", "DID", "SWI", "NSP", "CDF", "BRD", "PGN", "SWA"], 110, [["802", 5], ["802", 9]], ["1B", "1L"], { first: 375, last: 1200, every: 60 }),
   R("xc-sw", "CrossCountry — Birmingham ↔ Bristol", ["BHM", "CHD", "GLS", "BTH", "BTC"], 100, [["221", 4], ["220", 4]], ["1V", "1O"], { first: 390, last: 1230, every: 55 }),
   R("xc-ne", "CrossCountry — Birmingham ↔ Newcastle", ["BHM", "DER", "RCHE", "SHF", "LDS", "YRK", "DAR", "NCL"], 100, [["221", 5], ["220", 4], ["221", 4]], ["1D", "1E"], { first: 405, last: 1140, every: 75 }),
-  R("tpe-sc", "TransPennine — Manchester ↔ Glasgow", ["MAN", "WAC", "PRE", "OXM", "PEN", "CAR", "MTH", "GLC"], 100, [["397", 4], ["802", 5]], ["1S", "1M"], { first: 390, last: 1140, every: 90 }),
-  R("tpe-pn", "TransPennine — Manchester ↔ York", ["MAN", "HDE", "DEW", "LDS", "YRK"], 100, [["185", 3]], ["1Y", "1M"], { first: 375, last: 1275, every: 45 }),
+  R("tpe-sc", "TransPennine — Manchester ↔ Glasgow", ["MAN","WAC","PRE","@54.05,-2.80","OXM","PEN","@54.52,-2.68","CAR","MTH","GLC"], 100, [["397", 4], ["802", 5]], ["1S", "1M"], { first: 390, last: 1140, every: 90 }),
+  R("tpe-pn", "TransPennine — Manchester ↔ York", ["MAN","@53.63,-1.86","HDE","DEW","LDS","YRK"], 100, [["185", 3]], ["1Y", "1M"], { first: 375, last: 1275, every: 45 }),
   R("nr-nw", "Northern — Manchester ↔ Liverpool", ["MAN", "WAC", "LIV"], 90, [["195", 3], ["331", 3]], ["2P", "2W"], { first: 330, last: 1335, every: 30 }),
   R("sr-c", "ScotRail — Glasgow ↔ Edinburgh", ["GLC", "FHD", "EDB"], 100, [["385", 3], ["385", 4]], ["2L", "2K"], { first: 330, last: 1335, every: 30 }),
   R("gm-ang", "Great Eastern Main Line — Liverpool St ↔ Norwich", ["STP", "COL", "IPS", "NOR"], 100, [["720", 10], ["720", 12]], ["1P", "1W"], { first: 345, last: 1305, every: 45 }),
-  R("gm-cbg", "Lea Valley Lines — Liverpool St ↔ Cambridge", ["STP", "AUD", "CBG"], 100, [["720", 10]], ["1N", "1C"], { first: 360, last: 1320, every: 45 })
+  R("gm-cbg", "Lea Valley Lines — Liverpool St ↔ Cambridge", ["STP", "AUD", "CBG"], 100, [["720", 10]], ["1N", "1C"], { first: 360, last: 1320, every: 45 }),
+
+  R("pennsylvanian", "Pennsylvanian: New York ↔ Pittsburgh", ["NYP","PHL","HAR","@40.42,-77.66","@40.4971,-78.4794","@40.50,-78.39","PIT"], 95, [["sc44v", 6]], [42, 43], { first: 780, last: 1230, every: 1440 }, "pass"),
+  R("ns-buf", "Norfolk Southern — Chicago ↔ Buffalo freight", ["CHI","@41.72,-86.90","@41.42,-82.44","CLE","TOL","@42.13,-80.09","BUF","ROC","SYR","ALB","NYP"], 50, [["sd70ace", 1]], [218, 219], { first: 420, last: 1140, every: 200 }, "freight"),
+  R("bnsf-transcon", "BNSF Transcon — Chicago ↔ Los Angeles freight", ["CHI","@39.05,-95.68","KCY","@37.75,-100.02","ABQ","@35.19,-114.05","@34.35,-117.38","LAX"], 55, [["sd70ace", 1]], [795, 796], { first: 390, last: 1140, every: 180 }, "freight"),
+  R("dbc-wcml", "DB Cargo UK — Bristol ↔ Glasgow freight", ["BTC","BHM","NUN","STF","CRE","CAR","LCB","MTH","GLC"], 65, [["class66", 1]], ["4S","4M"], { first: 330, last: 1140, every: 120 }, "freight"),
+  R("fl-ge", "Freightliner — Ipswich ↔ London freight", ["IPS","COL","STP"], 70, [["class66", 1]], ["4L","4P"], { first: 300, last: 1230, every: 90 }, "freight"),
+  R("cathedrals", "Cathedrals Express — Paddington ↔ Bristol steam special", ["PAD","RDG","BTH","BTC"], 65, [["castle", 8]], ["1Z","1Z"], { first: 540, last: 540, every: 1440 }, "heritage")
 ];
 
 const DELAY_CAUSES = [

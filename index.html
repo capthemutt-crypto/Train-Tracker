@@ -4,26 +4,35 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RailRadar — live train tracking</title>
-<link rel="preconnect" href="https://unpkg.com">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<meta name="theme-color" content="#0e1320">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <header id="topbar">
+  <button id="menubtn" class="ctl" title="Toggle panel" aria-label="Toggle sidebar">&#9776;</button>
   <div id="brand"><span class="logo">RailRadar</span><span class="sub">live network tracker</span></div>
   <div id="searchwrap">
-    <input id="search" type="text" placeholder="Search headcode, station, operator, class&#8230;" autocomplete="off" spellcheck="false">
+    <input id="search" type="text" placeholder="Search headcode, station, operator, class&#8230;" autocomplete="off" spellcheck="false" aria-label="Search trains and stations">
     <div id="results" class="hidden"></div>
   </div>
   <div id="clockbox">
-    <button id="insightsbtn" class="ctl" title="Network insights">Insights</button>
+    <button id="listbtn" class="ctl" title="Life list (L)">List</button>
+    <button id="helpbtn" class="ctl" title="Keyboard shortcuts (?)">?</button>
+    <button id="insightsbtn" class="ctl" title="Network insights (I)">Insights</button>
     <span id="simclock">--:--:--</span>
-    <button id="pausebtn" class="ctl" title="Pause / resume">&#10074;&#10074;</button>
+    <button id="pausebtn" class="ctl" title="Pause / resume (P)">&#10074;&#10074;</button>
     <div id="speedbtns"></div>
   </div>
 </header>
 
 <aside id="leftpanel">
+  <section id="watchbox" class="hidden">
+    <h3>Watchlist</h3>
+    <div id="watchlist"></div>
+  </section>
   <section id="spots">
     <h3>Spotting near you</h3>
     <div id="spotbtns">
@@ -38,6 +47,16 @@
     </div>
     <div id="spotstat" class="dim-note">No spot set — add one to see which trains will pass closest to you, and when to be trackside.</div>
     <div id="spotlist"></div>
+    <div id="spotalert">
+      <label class="toggle"><input type="checkbox" id="alerttoggle"> Notify me when a train passes</label>
+      <select id="alertkm">
+        <option value="10">within 10 km</option>
+        <option value="25" selected>within 25 km</option>
+        <option value="50">within 50 km</option>
+        <option value="100">within 100 km</option>
+      </select>
+      <button id="addics" class="ctl" title="Export the next passes to your calendar (.ics)">Add to calendar (.ics)</button>
+    </div>
   </section>
   <section id="filters">
     <h3>Operators</h3>
@@ -53,13 +72,18 @@
 <div id="map"></div>
 <button id="homebtn" class="hidden">&#8982; Return to live view</button>
 
-<aside id="detail" class="hidden">
+<aside id="detail" class="hidden" aria-live="polite">
   <button id="closebtn" title="Close">&#215;</button>
   <div id="detailhead">
     <div id="d-headcode">—</div>
     <div id="d-op">—</div>
     <div id="d-status">—</div>
-    <label class="toggle"><input type="checkbox" id="follow"> Follow this train</label>
+    <div id="dactions">
+      <label class="toggle"><input type="checkbox" id="follow"> Follow</label>
+      <button id="watchbtn" class="ctl small" title="Pin this route to the watchlist">&#9734; Watch</button>
+      <button id="seenbtn" class="ctl small" title="Log this unit in your life list">&#10003; Seen</button>
+      <button id="riddenbtn" class="ctl small" title="Log this route as ridden">&#10003; Ridden</button>
+    </div>
   </div>
   <nav id="tabs">
     <button data-tab="overview" class="tab active">Overview</button>
@@ -81,7 +105,10 @@
   <div id="boardcard">
     <header>
       <h2 id="boardtitle">—</h2>
-      <button id="boardclose" title="Close">&#215;</button>
+      <div id="boardhd-actions">
+        <button id="visitbtn" class="ctl small" title="Log this station as visited in your life list">&#10003; Visited</button>
+        <button id="boardclose" title="Close">&#215;</button>
+      </div>
     </header>
     <div id="boardhd">(departure board — live)</div>
     <table id="boardtable">
@@ -100,9 +127,10 @@
     <option value="none">None</option>
   </select>
   <label class="lg"><input type="checkbox" id="ormtoggle"> Railway overlay</label>
+  <label class="lg"><input type="checkbox" id="scenictoggle"> Scenic spots</label>
   <span class="lg"><i style="border-color:#39d98a"></i> cruising</span>
-  <span class="lg"><i style="border-color:#ffc53d"></i> at station</span>
-  <span class="lg"><i style="border-color:#ff5c5c"></i> delayed</span>
+  <span class="lg"><i style="border-color:#ffc53d" class="lg-dwell">&#9679;</i> at station</span>
+  <span class="lg"><i style="border-color:#ff5c5c" class="lg-late">!</i> delayed</span>
 </div>
 
 <div id="insights" class="hidden">
@@ -115,7 +143,38 @@
   </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<div id="lifelist" class="hidden">
+  <div id="lifecard">
+    <header>
+      <h2>My life list</h2>
+      <button id="lifeclose" title="Close">&#215;</button>
+    </header>
+    <div id="lifebody"></div>
+  </div>
+</div>
+
+<div id="keys" class="hidden">
+  <div id="keyscard">
+    <header>
+      <h2>Keyboard shortcuts</h2>
+      <button id="keysclose" title="Close">&#215;</button>
+    </header>
+    <table class="keys">
+      <tbody>
+        <tr><td><kbd>/</kbd></td><td>Focus search</td></tr>
+        <tr><td><kbd>I</kbd></td><td>Network insights</td></tr>
+        <tr><td><kbd>P</kbd></td><td>Pause / resume</td></tr>
+        <tr><td><kbd>G</kbd></td><td>Return to live view</td></tr>
+        <tr><td><kbd>F</kbd></td><td>Follow selected train</td></tr>
+        <tr><td><kbd>L</kbd></td><td>Life list</td></tr>
+        <tr><td><kbd>?</kbd> or <kbd>K</kbd></td><td>This help</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Close panels</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
 <script src="js/network.js"></script>
 <script src="js/sim.js"></script>
 <script src="js/app.js"></script>

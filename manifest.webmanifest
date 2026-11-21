@@ -1,0 +1,13 @@
+{
+  "name": "RailRadar — live train tracking",
+  "short_name": "RailRadar",
+  "description": "FlightRadar-style live tracking for the US Amtrak network and the UK rail network — simulated schedules, spotting planner, life lists.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#0e1320",
+  "theme_color": "#0e1320",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

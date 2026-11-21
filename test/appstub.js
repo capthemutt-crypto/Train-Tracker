@@ -50,7 +50,10 @@ const L = {
   layerGroup: () => ({ addTo() {}, remove() {}, addLayer() {} }),
   divIcon: (o) => o
 };
-global.window = {};
+global.window = { addEventListener() {}, location: { protocol: "file:" } };
+global.location = { hash: "", pathname: "/index.html", search: "", protocol: "file:" };
+global.history = { replaceState() {} };
+global.navigator = undefined;
 global.document = {
   getElementById: getEl,
   createElement: () => el(),
