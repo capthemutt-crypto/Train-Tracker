@@ -208,6 +208,11 @@ h3 {
 #legend .lg { display: flex; align-items: center; gap: 5px; }
 #legend .lg i { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid; display: inline-block; }
 
+.darkened {
+  filter: invert(1) hue-rotate(185deg) brightness(.85) contrast(.92) saturate(.55);
+}
+.leaflet-tile-pane { background: transparent; }
+
 body.z-low .stn-label { display: none; }
 body.z-mid .train-label { display: none; }
 

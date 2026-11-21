@@ -13,9 +13,10 @@
 
   const BASEMAPS = {
     dark: {
-      url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-      attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
-      subdomains: "abcd", maxZoom: 19
+      url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      attribution: "&copy; OpenStreetMap contributors",
+      maxZoom: 19,
+      className: "darkened"
     },
     standard: {
       url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -39,7 +40,7 @@
   function setBasemap(key) {
     if (baseLayer) { map.removeLayer(baseLayer); baseLayer = null; }
     const cfg = BASEMAPS[key];
-    if (cfg) baseLayer = L.tileLayer(cfg.url, { attribution: cfg.attribution, subdomains: cfg.subdomains, maxZoom: cfg.maxZoom }).addTo(map);
+    if (cfg) baseLayer = L.tileLayer(cfg.url, { attribution: cfg.attribution, subdomains: cfg.subdomains, maxZoom: cfg.maxZoom, className: cfg.className }).addTo(map);
   }
 
   function init() {

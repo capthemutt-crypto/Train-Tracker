@@ -16,11 +16,12 @@ python3 -m http.server 8000
 
 (Or just double-click `index.html`.)
 
-**Basemaps:** CARTO's dark tiles are the default but are *not* required — the bottom-right
-picker switches to standard OpenStreetMap tiles, Esri satellite imagery, or **None** (no
-tile server at all; trains draw on a plain dark canvas). There is also a free, key-less
-**OpenRailwayMap** overlay showing the actual tracked infrastructure — worth having on even
-on the offline/dark modes.
+**Basemaps:** every option is key-free. The default **Dark** style is derived from standard
+OpenStreetMap tiles with a CSS darkening filter — CARTO is no longer used anywhere (it
+started demanding API keys). The bottom-right picker also switches to standard OpenStreetMap
+tiles, Esri satellite imagery, or **None** (no tile server at all; trains draw on a plain
+dark canvas). There is also a free, key-less **OpenRailwayMap** overlay showing the actual
+tracked infrastructure — worth having on even on the offline/dark modes.
 
 ## What's inside
 
