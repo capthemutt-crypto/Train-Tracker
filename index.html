@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RailRadar — live train tracking</title>
+<link rel="preconnect" href="https://unpkg.com">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar">
+  <div id="brand"><span class="logo">RailRadar</span><span class="sub">live network tracker</span></div>
+  <div id="searchwrap">
+    <input id="search" type="text" placeholder="Search headcode, station, operator, class&#8230;" autocomplete="off" spellcheck="false">
+    <div id="results" class="hidden"></div>
+  </div>
+  <div id="clockbox">
+    <span id="simclock">--:--:--</span>
+    <button id="pausebtn" class="ctl" title="Pause / resume">&#10074;&#10074;</button>
+    <div id="speedbtns"></div>
+  </div>
+</header>
+
+<aside id="leftpanel">
+  <section id="filters">
+    <h3>Operators</h3>
+    <div id="oplist"></div>
+    <label class="toggle"><input type="checkbox" id="delayedOnly"> Delayed services only</label>
+  </section>
+  <section id="feedbox">
+    <h3>Live network feed</h3>
+    <div id="feed"></div>
+  </section>
+</aside>
+
+<div id="map"></div>
+
+<aside id="detail" class="hidden">
+  <button id="closebtn" title="Close">&#215;</button>
+  <div id="detailhead">
+    <div id="d-headcode">—</div>
+    <div id="d-op">—</div>
+    <div id="d-status">—</div>
+    <label class="toggle"><input type="checkbox" id="follow"> Follow this train</label>
+  </div>
+  <nav id="tabs">
+    <button data-tab="overview" class="tab active">Overview</button>
+    <button data-tab="callings" class="tab">Calling pattern</button>
+    <button data-tab="stock" class="tab">Rolling stock</button>
+    <button data-tab="tele" class="tab">Telemetry</button>
+  </nav>
+  <div id="detailbody">
+    <section id="tab-overview" class="tabpage"></section>
+    <section id="tab-callings" class="tabpage hidden"></section>
+    <section id="tab-stock" class="tabpage hidden"></section>
+    <section id="tab-tele" class="tabpage hidden"></section>
+  </div>
+</aside>
+
+<div id="board" class="hidden">
+  <div id="boardcard">
+    <header>
+      <h2 id="boardtitle">—</h2>
+      <button id="boardclose" title="Close">&#215;</button>
+    </header>
+    <div id="boardhd">(departure board — live)</div>
+    <table id="boardtable">
+      <thead><tr><th>Time</th><th>Exp</th><th>Destination</th><th>Plat</th><th>Operator</th><th>Status</th></tr></thead>
+      <tbody id="boardrows"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="legend">
+  <span class="lg-title">Marker</span>
+  <span class="lg"><i style="border-color:#39d98a"></i> cruising</span>
+  <span class="lg"><i style="border-color:#ffc53d"></i> at station</span>
+  <span class="lg"><i style="border-color:#ff5c5c"></i> delayed</span>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="js/network.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
