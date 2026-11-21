@@ -11,13 +11,36 @@
   const stationMarkers = new Map();
   let trail = null;
 
+  const BASEMAPS = {
+    dark: {
+      url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
+      subdomains: "abcd", maxZoom: 19
+    },
+    standard: {
+      url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      attribution: "&copy; OpenStreetMap contributors",
+      maxZoom: 19
+    },
+    satellite: {
+      url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      attribution: "Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics",
+      maxZoom: 18
+    }
+  };
+  let baseLayer = null;
+  let ormLayer = null;
+
   const $ = (id) => document.getElementById(id);
 
   const map = L.map("map", { zoomControl: true, attributionControl: true, worldCopyJump: false });
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
-    subdomains: "abcd", maxZoom: 19
-  }).addTo(map);
+  setBasemap("dark");
+
+  function setBasemap(key) {
+    if (baseLayer) { map.removeLayer(baseLayer); baseLayer = null; }
+    const cfg = BASEMAPS[key];
+    if (cfg) baseLayer = L.tileLayer(cfg.url, { attribution: cfg.attribution, subdomains: cfg.subdomains, maxZoom: cfg.maxZoom }).addTo(map);
+  }
 
   function init() {
     Sim.init();
@@ -99,6 +122,17 @@
     $("board").addEventListener("click", (e) => { if (e.target === $("board")) closeBoard(); });
     $("follow").addEventListener("change", (e) => { follow = e.target.checked; });
     $("delayedOnly").addEventListener("change", (e) => { delayedOnly = e.target.checked; });
+    $("basemap").addEventListener("change", (e) => setBasemap(e.target.value));
+    $("ormtoggle").addEventListener("change", (e) => {
+      if (e.target.checked && !ormLayer) {
+        ormLayer = L.tileLayer("https://{s}.tile.openrailwaymap.org/standard/{z}/{x}/{y}.png", {
+          attribution: "&copy; OpenRailwayMap (CC-BY-SA) &copy; OpenStreetMap contributors",
+          subdomains: "ab", maxZoom: 19, opacity: 0.85
+        });
+      }
+      if (e.target.checked) ormLayer.addTo(map);
+      else if (ormLayer) map.removeLayer(ormLayer);
+    });
     document.querySelectorAll("#tabs .tab").forEach(b => {
       b.addEventListener("click", () => {
         document.querySelectorAll("#tabs .tab").forEach(x => x.classList.remove("active"));

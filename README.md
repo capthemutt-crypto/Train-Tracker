@@ -14,8 +14,13 @@ python3 -m http.server 8000
 # open http://localhost:8000
 ```
 
-(Or just double-click `index.html` — the only external dependency is Leaflet + CARTO/OSM map
-tiles, loaded from unpkg.)
+(Or just double-click `index.html`.)
+
+**Basemaps:** CARTO's dark tiles are the default but are *not* required — the bottom-right
+picker switches to standard OpenStreetMap tiles, Esri satellite imagery, or **None** (no
+tile server at all; trains draw on a plain dark canvas). There is also a free, key-less
+**OpenRailwayMap** overlay showing the actual tracked infrastructure — worth having on even
+on the offline/dark modes.
 
 ## What's inside
 

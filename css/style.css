@@ -195,10 +195,15 @@ h3 {
 .st-exp { color: var(--warn); }
 
 #legend {
-  position: fixed; right: 12px; bottom: 12px; z-index: 1100;
+  position: fixed; right: 12px; bottom: 12px; z-index: 1100; max-width: min(92vw, 640px);
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
-  padding: 8px 12px; display: flex; gap: 12px; align-items: center; font-size: 11px; color: var(--dim);
+  padding: 8px 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 11px; color: var(--dim);
 }
+#basemap {
+  background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 6px; padding: 3px 6px; font-size: 11px; outline: none; cursor: pointer;
+}
+#legend .lg input { accent-color: var(--accent); cursor: pointer; }
 #legend .lg-title { text-transform: uppercase; letter-spacing: .1em; font-size: 10px; }
 #legend .lg { display: flex; align-items: center; gap: 5px; }
 #legend .lg i { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid; display: inline-block; }
