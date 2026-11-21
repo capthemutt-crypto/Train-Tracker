@@ -44,7 +44,9 @@ const L = {
     };
     return m;
   },
-  polyline: () => ({ addTo() {}, setLatLngs() {}, remove() {} }),
+  polyline: () => ({ addTo() {}, setLatLngs() {}, remove() {}, bindTooltip() { return { addTo() {} }; }, on() { return {}; } }),
+  circle: () => ({ addTo() {}, remove() {} }),
+  layerGroup: () => ({ addTo() {}, remove() {}, addLayer() {} }),
   divIcon: (o) => o
 };
 global.window = {};

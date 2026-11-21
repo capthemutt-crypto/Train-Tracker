@@ -52,8 +52,16 @@ const Sim = (() => {
   const smooth = (x) => x * x * (3 - 2 * x);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+  function parsePathEntry(entry) {
+    if (typeof entry === "string" && entry[0] === "@") {
+      const [lat, lng] = entry.slice(1).split(",").map(Number);
+      return { lat, lng, via: true };
+    }
+    return STATIONS[entry];
+  }
+
   function buildRoute(def) {
-    const fwdStops = def.path.map(c => STATIONS[c]);
+    const fwdStops = def.path.map(parsePathEntry);
     const pts = [];
     const meta = [];
     for (let i = 0; i < fwdStops.length; i++) {
@@ -67,8 +75,9 @@ const Sim = (() => {
           meta.push(null);
         }
       }
-      pts.push([fwdStops[i].lat, fwdStops[i].lng]);
-      meta.push({ code: def.path[i], size: fwdStops[i].size });
+      const st = fwdStops[i];
+      pts.push([st.lat, st.lng]);
+      meta.push(st.via ? null : { code: def.path[i], size: st.size });
     }
     const cum = [0];
     for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + distKm({ lat: pts[i - 1][0], lng: pts[i - 1][1] }, { lat: pts[i][0], lng: pts[i][1] }));

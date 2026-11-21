@@ -9,6 +9,7 @@
   let spot = null;
   let spotPin = false;
   let spotMarker = null;
+  let spotFx = null;
   let spotListDirty = true;
   let insightsOpen = false;
 
@@ -657,10 +658,36 @@
     return best;
   }
 
+  function renderSpotFx(shown) {
+    if (spotFx) { spotFx.remove(); spotFx = null; }
+    if (!spot || !shown || !shown.length) return;
+    const radius = parseInt($("spotradius").value, 10) || 100;
+    spotFx = L.layerGroup();
+    L.circle([spot.lat, spot.lng], { radius: radius * 1000, color: "#33c1ff", weight: 1.2, opacity: 0.55, dashArray: "5 7", fill: false }).addTo(spotFx);
+    const next = shown[0];
+    L.polyline([[spot.lat, spot.lng], [next.na.lat, next.na.lng]], { color: "#33c1ff", weight: 1.5, opacity: 0.7, dashArray: "2 6" })
+      .bindTooltip(`${next.t.headcode} · next pass ${fmtHm(next.na.at)}`, { direction: "center", className: "stn-label" }).addTo(spotFx);
+    for (const r of shown) {
+      const mins = Math.max(0, Math.round((r.na.at - Sim.simTime) / MS_PER_MIN));
+      const inside = r.na.distKm <= radius + 1;
+      L.marker([r.na.lat, r.na.lng], {
+        icon: L.divIcon({
+          className: "",
+          html: `<div class="passdot ${inside ? "in" : "out"}${r === next ? " nxt" : ""}"><i></i><u>${fmtHm(r.na.at)} · ${r.t.headcode}</u></div>`,
+          iconSize: [12, 12], iconAnchor: [6, 6]
+        }),
+        zIndexOffset: 600
+      }).addTo(spotFx)
+        .bindTooltip(`${r.t.headcode} → ${r.t.destination}<br>closest pass ${fmtHm(r.na.at)} — ${r.na.distKm.toFixed(0)} km away${mins ? ` (in ${mins >= 60 ? Math.floor(mins / 60) + "h " + (mins % 60) + "m" : mins + "m"})` : " (now)"}`, { direction: "top", className: "stn-label", offset: [0, -6] })
+        .on("click", () => { selectTrain(r.t.id); map.flyTo([r.na.lat, r.na.lng], Math.max(map.getZoom(), 9), { duration: 1.2 }); });
+    }
+    spotFx.addTo(map);
+  }
+
   function renderSpotList() {
     const box = $("spotlist");
     if (!box) return;
-    if (!spot) { box.innerHTML = ""; return; }
+    if (!spot) { box.innerHTML = ""; renderSpotFx([]); return; }
     const radius = parseInt($("spotradius").value, 10);
     const results = [];
     for (const t of Sim.trains()) {
@@ -690,8 +717,9 @@
         if (r) { map.flyTo([r.na.lat, r.na.lng], Math.max(map.getZoom(), 9), { duration: 1.2 }); if (spotMarker) spotMarker.setTooltipContent(`${r.t.headcode} closest pass ${fmtHm(r.na.at)}`); }
       };
     });
+    renderSpotFx(shown);
     spotListDirty = false;
-    if (spot) $("spotstat").textContent = `Spot ${spot.lat.toFixed(3)}, ${spot.lng.toFixed(3)} — ${head}. Click a pass-by to jump to it.`;
+    if (spot) $("spotstat").textContent = `Spot ${spot.lat.toFixed(3)}, ${spot.lng.toFixed(3)} — ${head}. Click a pass-by (list or map) to jump to it.`;
   }
 
   function renderTab(t) {

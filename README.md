@@ -59,6 +59,10 @@ tracked infrastructure — worth having on even on the offline/dark modes.
   (with its arrival time and distance from you). Click a pass-by to fly the map there. Every
   train's detail panel has a **Spotting** tab with the identical analysis for just that train.
   Your spot is remembered between visits.
+- **Spotting drawn on the map** — a dashed radius ring is drawn around your spot, each
+  upcoming pass-by appears as a pulsing dot labelled with its time and headcode (green for
+  the next one, blue while inside your radius), and a dashed line marks where the nearest
+  pass will happen. Pass dots and the sidebar list stay in sync — click either to jump.
 - **Insights panel** (press `I` or the button in the top bar) — network-wide statistics:
   live service counts and one-hour departure outlook, punctuality percentage, fastest and
   most-delayed services, the longest haul currently on the board, busiest hub stations
