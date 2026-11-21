@@ -6,6 +6,11 @@
   let boardCode = null;
   const hiddenOps = new Set();
   let delayedOnly = false;
+  let spot = null;
+  let spotPin = false;
+  let spotMarker = null;
+  let spotListDirty = true;
+  let insightsOpen = false;
 
   const trainMarkers = new Map();
   const stationMarkers = new Map();
@@ -56,8 +61,15 @@
     wireUI();
     updateLabels();
     map.on("zoomend", updateLabels);
+    map.on("click", (e) => {
+      if (spotPin) { setSpot({ lat: e.latlng.lat, lng: e.latlng.lng }); setSpotPin(false); }
+    });
+    try { const s = JSON.parse(localStorage.getItem("rr_spot")); if (s && typeof s.lat === "number") spot = s; } catch (_e) {}
+    if (spot) dropSpotMarker();
+    updateSpotStat();
     setInterval(loop, 250);
     setInterval(renderFeed, 1500);
+    setInterval(renderSpotList, 4000);
   }
 
   function buildStations() {
@@ -151,6 +163,10 @@
         selectedTab = b.dataset.tab;
         document.querySelectorAll(".tabpage").forEach(p => p.classList.add("hidden"));
         $("tab-" + selectedTab).classList.remove("hidden");
+        if (selectedId) {
+          const t = Sim.trainById(selectedId);
+          if (t) renderTab(t);
+        }
       });
     });
     const search = $("search");
@@ -164,8 +180,24 @@
     });
     document.addEventListener("keydown", (e) => {
       if (e.key === "/" && document.activeElement !== search) { e.preventDefault(); search.focus(); }
-      if (e.key === "Escape") closeBoard();
+      if (e.key === "Escape") { closeBoard(); closeInsights(); }
+      if (e.key.toLowerCase() === "i" && document.activeElement !== search && document.activeElement.tagName !== "INPUT") {
+        if (insightsOpen) closeInsights(); else openInsights();
+      }
     });
+    $("insightsbtn").addEventListener("click", () => { if (insightsOpen) closeInsights(); else openInsights(); });
+    $("insightsclose").addEventListener("click", closeInsights);
+    $("insights").addEventListener("click", (e) => { if (e.target.id === "insights") closeInsights(); });
+    $("spotgeo").addEventListener("click", () => {
+      if (typeof navigator === "undefined" || !navigator.geolocation) { updateSpotStat("Geolocation unavailable — pin your spot on the map instead."); return; }
+      updateSpotStat("Requesting your location…");
+      navigator.geolocation.getCurrentPosition(
+        (pos) => { setSpot({ lat: pos.coords.latitude, lng: pos.coords.longitude }); map.setView([spot.lat, spot.lng], map.getZoom()); },
+        () => updateSpotStat("Location denied — pin your spot on the map instead.")
+      );
+    });
+    $("spotpin").addEventListener("click", () => setSpotPin(!spotPin));
+    $("spotradius").addEventListener("change", () => { if (spot) renderSpotList(); });
   }
 
   function trainVisible(t) {
@@ -462,10 +494,7 @@
       const t = Sim.trainById(selectedId);
       if (t) {
         renderHead(t);
-        if (selectedTab === "overview") renderOverview(t);
-        else if (selectedTab === "callings") renderCallings(t);
-        else if (selectedTab === "stock") renderStock(t);
-        else renderTele(t);
+        renderTab(t);
         if (follow) map.setView([t.pos.lat, t.pos.lng], map.getZoom(), { animate: true, duration: 0.6 });
         if (trail) trail.setLatLngs(t.history.map(p => [p[0], p[1]]).concat([[t.pos.lat, t.pos.lng]]));
       } else {
@@ -563,6 +592,198 @@
     });
   }
 
+  function setSpot(pt) {
+    spot = { lat: pt.lat, lng: pt.lng };
+    try { localStorage.setItem("rr_spot", JSON.stringify(spot)); } catch (_e) {}
+    dropSpotMarker();
+    spotListDirty = true;
+    updateSpotStat();
+    if (selectedId && selectedTab === "spot") renderSpotTab(Sim.trainById(selectedId));
+  }
+
+  function dropSpotMarker() {
+    if (spotMarker) spotMarker.remove();
+    spotMarker = L.marker([spot.lat, spot.lng], {
+      icon: L.divIcon({ className: "", html: `<div class="spotpin"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] }),
+      zIndexOffset: 900
+    }).addTo(map).bindTooltip("Your spot", { direction: "top", offset: [0, -8], className: "stn-label" });
+  }
+
+  function setSpotPin(on) {
+    spotPin = on;
+    $("spotpin").classList.toggle("active", on);
+    document.body.classList.toggle("spotting", on);
+    if (on) updateSpotStat("Click the map to set your spotting spot…");
+  }
+
+  function updateSpotStat(msg) {
+    if (!$("spotstat")) return;
+    if (spot) $("spotstat").textContent = msg || `Spot set — nearest trains recalculating…`; 
+  }
+
+  function nearestApproach(t, pt) {
+    const now = Sim.simTime;
+    const start = Math.max(now, t.sched[0].dep);
+    const end = Math.min(now + 12 * 3600000, t.sched[t.sched.length - 1].arr - 1);
+    if (end - start < 59999) return null;
+    const step = (t.sched[t.sched.length - 1].arr - start) > 12 * MS_PER_MIN ? 4 * MS_PER_MIN : MS_PER_MIN;
+    let best = null;
+    for (let ms = start; ms <= end; ms += step) {
+      const p = Sim.projectAt(t, ms);
+      if (!p) break;
+      const d = Sim.distKm(p, pt);
+      if (!best || d < best.distKm) best = { distKm: d, at: ms };
+    }
+    if (!best) return null;
+    for (let ms = Math.max(start, best.at - step); ms <= Math.min(end, best.at + step); ms += 20000) {
+      const p = Sim.projectAt(t, ms);
+      if (!p) break;
+      const d = Sim.distKm(p, pt);
+      if (d < best.distKm) best = { distKm: d, at: ms };
+    }
+    const p = Sim.projectAt(t, best.at);
+    return { distKm: best.distKm, at: best.at, lat: p.lat, lng: p.lng };
+  }
+
+  function nearestStop(t, pt) {
+    let best = null;
+    t.sched.forEach((s, i) => {
+      if (s.arr < Sim.simTime) return;
+      const st = STATIONS[s.code];
+      if (!st) return;
+      const d = Sim.distKm(st, pt);
+      if (!best || d < best.distKm) best = { distKm: d, code: s.code, name: s.name, arr: s.arr, dep: s.dep, idx: i };
+    });
+    return best;
+  }
+
+  function renderSpotList() {
+    const box = $("spotlist");
+    if (!box) return;
+    if (!spot) { box.innerHTML = ""; return; }
+    const radius = parseInt($("spotradius").value, 10);
+    const results = [];
+    for (const t of Sim.trains()) {
+      if (t.state === "done") continue;
+      const na = nearestApproach(t, spot);
+      if (!na) continue;
+      results.push({ t, na });
+    }
+    let shown = results.filter(r => r.na.distKm <= radius + 1).sort((a, b) => a.na.at - b.na.at).slice(0, 10);
+    let head = `${shown.length} pass-by${shown.length === 1 ? "" : "s"} within ${radius} km`;
+    if (!shown.length) {
+      shown = results.sort((a, b) => a.na.distKm - b.na.distKm).slice(0, 5);
+      head = shown.length ? `Nothing within ${radius} km yet — the closest upcoming passes:` : "No scheduled passes within 12 h";
+    }
+    box.innerHTML = `<div class="shead">${head}</div>` + shown.map(r => {
+      const mins = Math.max(0, Math.round((r.na.at - Sim.simTime) / MS_PER_MIN));
+      const watch = nearestStop(r.t, spot);
+      return `<div class="sitem" data-id="${r.t.id}">
+        <div class="s1"><b>${r.t.headcode}</b> <span class="sdst">→ ${r.t.destination}</span><span class="swhen">${mins <= 0 ? "now" : "in " + (mins >= 60 ? Math.floor(mins / 60) + "h " + (mins % 60) + "m" : mins + "m")}</span></div>
+        <div class="s2">Closest pass ${fmtHm(r.na.at)} · ${r.na.distKm.toFixed(0)} km / ${(r.na.distKm * 0.621371).toFixed(0)} mi away${watch ? ` · watch from ${watch.name} (${fmtHm(watch.arr)}, ${watch.distKm.toFixed(0)} km from you)` : ""}</div>
+      </div>`;
+    }).join("");
+    box.querySelectorAll(".sitem[data-id]").forEach(el => {
+      el.onclick = () => {
+        const r = shown.find(x => x.t.id === el.dataset.id);
+        selectTrain(el.dataset.id);
+        if (r) { map.flyTo([r.na.lat, r.na.lng], Math.max(map.getZoom(), 9), { duration: 1.2 }); if (spotMarker) spotMarker.setTooltipContent(`${r.t.headcode} closest pass ${fmtHm(r.na.at)}`); }
+      };
+    });
+    spotListDirty = false;
+    if (spot) $("spotstat").textContent = `Spot ${spot.lat.toFixed(3)}, ${spot.lng.toFixed(3)} — ${head}. Click a pass-by to jump to it.`;
+  }
+
+  function renderTab(t) {
+    if (selectedTab === "overview") renderOverview(t);
+    else if (selectedTab === "callings") renderCallings(t);
+    else if (selectedTab === "stock") renderStock(t);
+    else if (selectedTab === "spot") renderSpotTab(t);
+    else renderTele(t);
+  }
+
+  function renderSpotTab(t) {
+    const box = $("tab-spot");
+    if (!spot) {
+      box.innerHTML = `<div class="dim-note">Set a spot with <b>Use my location</b> or <b>Pin on map</b> in the Spotting panel, and this tab will show exactly when and where this train passes closest to you — plus the best station to watch it from.</div>`;
+      return;
+    }
+    const na = nearestApproach(t, spot);
+    const watch = nearestStop(t, spot);
+    const stationPasses = watch ? `<div class="kv" style="margin-top:10px">
+        <span class="k">Best station</span><span class="v">${watch.name} — ${watch.distKm.toFixed(0)} km / ${(watch.distKm * 0.621371).toFixed(0)} mi from you</span>
+        <span class="k">It arrives</span><span class="v">${fmtHm(watch.arr)} (departs ${fmtHm(watch.dep)})</span>
+      </div>` : "";
+    box.innerHTML = `${na
+      ? `<div class="nextbox"><div class="nb-t">Closest point on its run</div>
+        <div class="nb-v">${fmtHm(na.at)} · ${na.distKm.toFixed(0)} km / ${(na.distKm * 0.621371).toFixed(0)} mi from your spot</div>
+        <div class="nb-e">${Math.max(0, Math.round((na.at - Sim.simTime) / MS_PER_MIN))} minutes from now — straight-line distance to the track</div></div>`
+      : `<div class="dim-note">This run is finished within the next 12 hours — no upcoming pass.</div>`}
+      ${stationPasses}`;
+  }
+
+  function insightsData() {
+    const trs = Sim.trains();
+    const live = trs.filter(t => t.state === "run" || t.state === "dwell");
+    const running = live.filter(t => t.state === "run");
+    const delayed = live.filter(t => Sim.trainDelayMs(t) > 5 * MS_PER_MIN);
+    const withDelay = live.filter(t => Sim.trainDelayMs(t) > 0);
+    const onTimePct = live.length ? Math.round(100 * (live.length - withDelay.length) / live.length) : 100;
+    const fastest = running.reduce((a, b) => (b.curSpeed > (a ? a.curSpeed : 40) ? b : a), null);
+    const worst = live.reduce((a, b) => (Sim.trainDelayMs(b) > (a ? Sim.trainDelayMs(a) : 0) ? b : a), null);
+    const longest = live.reduce((a, b) => (b.stops[b.stops.length - 1].d > (a ? a.stops[a.stops.length - 1].d : 0) ? b : a), null);
+    const perOp = {};
+    for (const t of live) {
+      const o = perOp[t.opId] || (perOp[t.opId] = { n: 0, dSum: 0, dMax: 0 });
+      o.n++;
+      const d = Sim.trainDelayMs(t);
+      o.dSum += d; if (d > o.dMax) o.dMax = d;
+    }
+    const fleet = {};
+    for (const t of live) fleet[t.stock.name] = (fleet[t.stock.name] || 0) + 1;
+    const nextHour = trs.filter(t => t.state === "pre" && t.depMs - Sim.simTime <= 3600000).length;
+    const hubs = Object.entries(STATIONS).filter(([, st]) => st.size === 3)
+      .map(([code, st]) => ({ code, name: st.name, n: Sim.stationBoard(code).length }))
+      .sort((a, b) => b.n - a.n).slice(0, 6);
+    return { live, running, delayed, onTimePct, fastest, worst, longest, perOp, fleet, nextHour, hubs };
+  }
+
+  function renderInsights() {
+    const d = insightsData();
+    const fastestRow = d.fastest ? `<div class="fastrow"><b>${d.fastest.headcode}</b> — ${d.fastest.routeName} ${Math.round(d.fastest.curSpeed)} mph</div>` : "";
+    const opRows = Object.entries(d.perOp).sort((a, b) => b[1].n - a[1].n)
+      .map(([id, o]) => { const op = OPERATORS[id] || { name: id, color: "#888" };
+        return `<tr><td><span class="dot" style="background:${op.color}"></span>${op.name}</td><td>${o.n}</td><td>${Sim.fmtDelay(Math.round(o.dSum / o.n))}</td><td>${Sim.fmtDelay(o.dMax)}</td></tr>`;
+      }).join("");
+    const fleetRows = Object.entries(d.fleet).sort((a, b) => b[1] - a[1]).slice(0, 8)
+      .map(([name, n]) => `<div class="flrow"><span>${name}</span><b>${n} in traffic</b></div>`).join("");
+    $("insightsbody").innerHTML = `
+      <div class="kv">
+        <span class="k">Services live now</span><span class="v">${d.live.length} running · ${d.nextHour} departing within the next hour</span>
+        <span class="k">Punctuality</span><span class="v">${d.onTimePct}% on time · ${d.delayed.length} running &gt; 5 min late</span>
+        <span class="k">Fastest right now</span><span class="v">${d.fastest ? `${d.fastest.headcode} — ${Math.round(d.fastest.curSpeed)} mph (${d.fastest.routeName})` : "—"}</span>
+        <span class="k">Most delayed</span><span class="v">${d.worst ? `${d.worst.headcode} — ${Sim.fmtDelay(Sim.trainDelayMs(d.worst))}${d.worst.cause ? " (" + d.worst.cause + ")" : ""}` : "—"}</span>
+        <span class="k">Longest haul on the board</span><span class="v">${d.longest ? `${d.longest.routeName} — ${Math.round(d.longest.stops[d.longest.stops.length - 1].d).toLocaleString()} km` : "—"}</span>
+      </div>
+      <h3 class="ih">Busiest hubs right now</h3>
+      <div class="hubrow">${d.hubs.map(h => `<span class="hub" data-code="${h.code}">${h.code} · ${h.n} services<u>${stShort(h.name)}</u></span>`).join("")}</div>
+      <h3 class="ih">Operators — live services</h3>
+      <table class="insights"><thead><tr><th>Operator</th><th>Live</th><th>Avg delay</th><th>Worst</th></tr></thead><tbody>${opRows}</tbody></table>
+      <h3 class="ih">Fleet in traffic</h3>
+      <div class="fleetlist">${fleetRows}</div>
+    `;
+    document.querySelectorAll("#insightsbody .hub").forEach(el => {
+      el.onclick = () => { closeInsights(); openBoard(el.dataset.code); };
+    });
+  }
+
+  function openInsights() { insightsOpen = true; $("insights").classList.remove("hidden"); renderInsights(); }
+  function closeInsights() { insightsOpen = false; $("insights").classList.add("hidden"); }
+
+  function stShort(name) {
+    return name.replace(/ (Union Station|Central Station|Transportation Center)$/, "").split(" — ")[0];
+  }
+
   const realTick = () => Sim.tick(250);
 
   function loop() {
@@ -570,7 +791,10 @@
     $("simclock").textContent = fmtClock(Sim.simTime);
     render();
     if (boardCode != null) renderBoard();
+    if (insightsOpen) renderInsights();
   }
 
   init();
+
+  window.__rr = { setSpot: (lat, lng) => setSpot({ lat, lng }), openInsights, closeInsights, renderSpotList, spot: () => spot, select: (id) => selectTrain(id) };
 })();

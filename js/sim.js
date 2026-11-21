@@ -262,8 +262,8 @@ const Sim = (() => {
     t.history = [];
   }
 
-  function posAlong(t) {
-    const prog = t.prog;
+  function posAlong(t, progArg) {
+    const prog = progArg != null ? progArg : t.prog;
     const segs = t.segs;
     if (prog <= 0) return { lat: segs[0].ax[0], lng: segs[0].ax[1], segIdx: 0, dToNext: segs[0].d, kmFromPrev: 0, kmToNext: segs[0].d };
     for (let i = 0; i < segs.length; i++) {
@@ -388,6 +388,31 @@ const Sim = (() => {
     return base + f * (b.arr - base);
   }
 
+  function projectAt(t, whenMs) {
+    const sched = t.sched, stops = t.stops, n = sched.length;
+    if (whenMs <= sched[0].dep) {
+      const p = posAlong(t, 0);
+      return { lat: p.lat, lng: p.lng, prog: 0, at: whenMs, pre: true };
+    }
+    if (whenMs >= sched[n - 1].arr) return null;
+    for (let k = 0; k < n - 1; k++) {
+      const dep = sched[k].dep || sched[k].arr;
+      const arr = sched[k + 1].arr;
+      if (whenMs < arr) {
+        if (k > 0 && whenMs < dep) {
+          const p = posAlong(t, stops[k].d);
+          return { lat: p.lat, lng: p.lng, prog: stops[k].d, at: whenMs, dwellAt: k };
+        }
+        const span = arr - dep;
+        const f = span > 0 ? clamp((whenMs - dep) / span, 0, 1) : 0;
+        const prog = stops[k].d + f * (stops[k + 1].d - stops[k].d);
+        const p = posAlong(t, prog);
+        return { lat: p.lat, lng: p.lng, prog, at: whenMs };
+      }
+    }
+    return null;
+  }
+
   function fmtTime(ms) {
     const d = new Date(ms);
     return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
@@ -484,7 +509,7 @@ const Sim = (() => {
     trainById: (id) => trains.get(id),
     events: () => events,
     stationBoard,
-    trainDelayMs, expectedTimeAt, fmtTime, fmtDelay, distKm,
+    trainDelayMs, expectedTimeAt, projectAt, fmtTime, fmtDelay, distKm,
     debugRoute: (id, dir) => routes[id][dir],
     runStats: (t) => ({ km: t.trailKm, minutes: (simTime - t.depMs) / 60000 })
   };

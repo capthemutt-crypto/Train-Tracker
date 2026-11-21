@@ -16,6 +16,7 @@
     <div id="results" class="hidden"></div>
   </div>
   <div id="clockbox">
+    <button id="insightsbtn" class="ctl" title="Network insights">Insights</button>
     <span id="simclock">--:--:--</span>
     <button id="pausebtn" class="ctl" title="Pause / resume">&#10074;&#10074;</button>
     <div id="speedbtns"></div>
@@ -23,6 +24,21 @@
 </header>
 
 <aside id="leftpanel">
+  <section id="spots">
+    <h3>Spotting near you</h3>
+    <div id="spotbtns">
+      <button id="spotgeo" class="ctl">Use my location</button>
+      <button id="spotpin" class="ctl">Pin on map</button>
+      <select id="spotradius">
+        <option value="25">25 km</option>
+        <option value="50">50 km</option>
+        <option value="100" selected>100 km</option>
+        <option value="250">250 km</option>
+      </select>
+    </div>
+    <div id="spotstat" class="dim-note">No spot set — add one to see which trains will pass closest to you, and when to be trackside.</div>
+    <div id="spotlist"></div>
+  </section>
   <section id="filters">
     <h3>Operators</h3>
     <div id="oplist"></div>
@@ -49,12 +65,14 @@
     <button data-tab="callings" class="tab">Calling pattern</button>
     <button data-tab="stock" class="tab">Rolling stock</button>
     <button data-tab="tele" class="tab">Telemetry</button>
+    <button data-tab="spot" class="tab">Spotting</button>
   </nav>
   <div id="detailbody">
     <section id="tab-overview" class="tabpage"></section>
     <section id="tab-callings" class="tabpage hidden"></section>
     <section id="tab-stock" class="tabpage hidden"></section>
     <section id="tab-tele" class="tabpage hidden"></section>
+    <section id="tab-spot" class="tabpage hidden"></section>
   </div>
 </aside>
 
@@ -84,6 +102,16 @@
   <span class="lg"><i style="border-color:#39d98a"></i> cruising</span>
   <span class="lg"><i style="border-color:#ffc53d"></i> at station</span>
   <span class="lg"><i style="border-color:#ff5c5c"></i> delayed</span>
+</div>
+
+<div id="insights" class="hidden">
+  <div id="insightscard">
+    <header>
+      <h2>Network insights</h2>
+      <button id="insightsclose" title="Close">&#215;</button>
+    </header>
+    <div id="insightsbody"></div>
+  </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

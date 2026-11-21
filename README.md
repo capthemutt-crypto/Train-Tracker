@@ -53,6 +53,17 @@ tracked infrastructure — worth having on even on the offline/dark modes.
   - **Telemetry** — speed sparkline over the recent window, peak speed, mean speed,
     distance.
   - **Follow mode** — the map pans to keep the selected train centred.
+- **Spotting near you** — set a spot with your device's geolocation or by pinning the map,
+  choose a radius, and the app continuously works out which trains will pass closest to you
+  in the future, when, and from how far — plus the best remaining station to watch each from
+  (with its arrival time and distance from you). Click a pass-by to fly the map there. Every
+  train's detail panel has a **Spotting** tab with the identical analysis for just that train.
+  Your spot is remembered between visits.
+- **Insights panel** (press `I` or the button in the top bar) — network-wide statistics:
+  live service counts and one-hour departure outlook, punctuality percentage, fastest and
+  most-delayed services, the longest haul currently on the board, busiest hub stations
+  (click one for its departure board), a per-operator live-delay table, and the fleet
+  currently in traffic.
 - **Search** (`/` focuses it) — by headcode, operator, vehicle class, origin/destination,
   unit number, or station code/name. Results jump straight to the train or open a board.
 - **Station departure boards** — click any station dot: a live board with sched/expected
